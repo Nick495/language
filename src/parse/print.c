@@ -26,20 +26,13 @@ static void print_token(token t, FILE *out)
 	fprintf(out, "Found %s : %s\n", name, get_value(t));
 }
 
-static enum token_type print_token_wrap(int in, FILE *out)
-{
-	token t = read_token(in, NULL);
-	enum token_type type = get_type(t);
-	print_token(t, out);
-	free(t);
-	return type;
-}
-
 int print(int in, FILE *out)
 {
-	for (enum token_type type = print_token_wrap(in, out); type != TOKEN_EOF;) {
-		type = print_token_wrap(in, out);
+	token t = NULL;
+	for (t= read_token(in, t); get_type(t) != TOKEN_EOF; t= read_token(in, t)) {
+		print_token(t, out);
 	}
+	free_token(t);
 	if (close(in)) {
 		fprintf(stderr, "%s\n", strerror(errno));
 		return errno;
