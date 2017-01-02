@@ -11,10 +11,6 @@ test_string()
 }
 
 test_string "12345"
-test_string "1 2"
-test_string "12 3 4"
-test_string "("
-test_string ")"
-test_string "( 1 2 3 4 )"
+test_string "( 1 + 2 + 3 + 4 )"
 test_string "2 + 4"
 test_string "1 + 2 + 3 + 4"
