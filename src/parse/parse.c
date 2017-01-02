@@ -23,6 +23,10 @@ struct Parser *make_parser(int in)
 void free_parser(struct Parser *p)
 {
 	if (p) {
+		for (size_t i = 0; i < BUF_CAP; ++i) {
+			free_token(p->buf[i]);
+		}
+		free_token(p->last_popped);
 		close(p->infd);
 	}
 	free(p);
@@ -31,18 +35,17 @@ void free_parser(struct Parser *p)
 token peek(struct Parser *p)
 {
 	if (p->buf_use < p->buf_cap) {
-		p->buf[p->buf_use++] = read_token(p->infd);
+		p->buf[p->buf_use++] = read_token(p->infd, NULL);
 	}
 	return p->buf[p->buf_use - 1];
 }
 
 token next(struct Parser *p)
 {
-	free_token(p->last_popped);
 	if (p->buf_use) {
 		p->last_popped = p->buf[p->buf_use-- - 1];
 	} else {
-		p->last_popped = read_token(p->infd);
+		p->last_popped = read_token(p->infd, p->last_popped);
 	}
 	return p->last_popped;
 }

@@ -8,6 +8,7 @@ struct lexer {
 	size_t width;
 	string lexeme;
 	int outfd;
+	token token_cache;
 };
 
 struct lexer *make_lexer(char *name, FILE *in, int out)
@@ -27,17 +28,18 @@ void free_lexer(struct lexer *l)
 	assert(l);
 	fclose(l->input);
 	close(l->outfd);
+	free_token(l->token_cache);
 	free_string(l->lexeme);
 	free(l);
 }
 
 static void emit_token(struct lexer *l, enum token_type type)
 {
-	token t = make_token(type, get_text(l->lexeme), get_length(l->lexeme) + 1);
-	assert(t); /* TODO: Error handling */
-	assert(!write_token(t, l->outfd)); /* TODO: Error handling */
+	l->token_cache = make_token(type,
+			get_text(l->lexeme), get_length(l->lexeme) + 1, l->token_cache);
+	assert(l->token_cache); /* TODO: Error handling */
+	assert(!write_token(l->token_cache, l->outfd)); /* TODO: Error handling */
 	empty_string(l->lexeme);
-	free(t);
 }
 
 static int next(struct lexer *l)

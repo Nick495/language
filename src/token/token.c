@@ -1,8 +1,9 @@
 #include "token.h"
 
 struct token_ {
-	size_t size;
 	enum token_type type;
+	size_t size;
+	size_t alloced;
 	char *value;
 };
 
@@ -21,24 +22,36 @@ void free_token(token t)
 	free(t);
 }
 
-static token alloc_token(size_t len)
+static token alloc_token(size_t len, token prev)
 {
-	token t = malloc(sizeof *t);
-	if (!t) goto fail_malloc_token;
-	t->value = malloc(sizeof t->value * len);
-	if (!t->value) goto fail_malloc_value;
+	token t;
+	if (prev) {
+		t = prev;
+	} else {
+		t = malloc(sizeof *t);
+		if (!t) goto fail_malloc_token;
+		t->value = NULL;
+		t->alloced = 0;
+	}
+	if (t->alloced < len) {
+		char *new = realloc(t->value, sizeof t->value * len);
+		if (!new) goto fail_malloc_value;
+		t->value = new;
+		t->alloced = len;
+	}
 	return t;
 
+	free(t->value);
 fail_malloc_value:
 fail_malloc_token:
 	free_token(t);
 	return NULL;
 }
 
-token make_token(enum token_type type, char *s, size_t slen)
+token make_token(enum token_type type, char *s, size_t slen, token prev)
 {
 	slen += 1; /* Include '\0' */
-	token t = alloc_token(slen);
+	token t = alloc_token(slen, prev);
 	if (!t) goto fail_alloc_token;
 	t->type = type;
 	t->size = slen;
@@ -95,10 +108,10 @@ static size_t deserialize_int(int in)
 	return (size_t) val;
 }
 
-token read_token(int in)
+token read_token(int in, token prev)
 {
 	const size_t tsize = deserialize_int(in);
-	token t = alloc_token(tsize);
+	token t = alloc_token(tsize, prev);
 	if (!t) goto fail_alloc_token;
 	t->size = tsize;
 	t->type = (enum token_type) deserialize_int(in);

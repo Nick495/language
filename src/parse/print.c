@@ -28,7 +28,7 @@ static void print_token(token t, FILE *out)
 
 static enum token_type print_token_wrap(int in, FILE *out)
 {
-	token t = read_token(in);
+	token t = read_token(in, NULL);
 	enum token_type type = get_type(t);
 	print_token(t, out);
 	free(t);
