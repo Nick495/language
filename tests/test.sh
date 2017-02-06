@@ -1,11 +1,12 @@
 #!/bin/sh
+
 test_string()
 {
 	STRING="$1"
 	echo "==> Testing $STRING"
-	TOKENS_OUTPUT=$(echo $STRING | ../bin/print_tokens)
+	TOKENS_OUTPUT=$(echo $STRING | ./print_tokens)
 	echo "$TOKENS_OUTPUT"
-	PARSE_OUTPUT=$(echo $STRING | ../bin/parse)
+	PARSE_OUTPUT=$(echo $STRING | ./parse)
 	echo "$PARSE_OUTPUT"
 	echo ""
 }

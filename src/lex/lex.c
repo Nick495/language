@@ -11,7 +11,7 @@ struct lexer {
 	token token_cache;
 };
 
-struct lexer *make_lexer(char *name, FILE *in, int out)
+struct lexer *lexer_make(char *name, FILE *in, int out)
 {
 	struct lexer *l = malloc(sizeof *l);
 	assert(l); /* TODO: Error handling */
@@ -19,17 +19,17 @@ struct lexer *make_lexer(char *name, FILE *in, int out)
 	l->name = name;
 	l->input = in;
 	l->outfd = out;
-	l->lexeme = make_string();
+	l->lexeme = string_make();
 	return l;
 }
 
-void free_lexer(struct lexer *l)
+void lexer_free(struct lexer *l)
 {
 	assert(l);
 	fclose(l->input);
 	close(l->outfd);
 	free_token(l->token_cache);
-	free_string(l->lexeme);
+	string_free(l->lexeme);
 	free(l);
 }
 
@@ -134,10 +134,10 @@ static void *lex_start(struct lexer *l)
 
 int lex(FILE *in, int out)
 {
-	struct lexer *l = make_lexer("stdin", in, out);
+	struct lexer *l = lexer_make("stdin", in, out);
 	for (state_func state = lex_start; state != NULL;) {
 		state = (state_func) state(l);
 	}
-	free_lexer(l);
+	lexer_free(l);
 	return 0;
 }

@@ -9,7 +9,7 @@ struct Parser {
 	size_t buf_cap;
 };
 
-struct Parser *make_parser(int in)
+struct Parser *parser_make(int in)
 {
 	struct Parser *p = malloc(sizeof *p);
 	assert(p); /* TODO: Error handling. */
@@ -20,7 +20,7 @@ struct Parser *make_parser(int in)
 	return p;
 }
 
-void free_parser(struct Parser *p)
+void parser_free(struct Parser *p)
 {
 	if (p) {
 		for (size_t i = 0; i < BUF_CAP; ++i) {
@@ -50,14 +50,6 @@ token next(struct Parser *p)
 	return p->last_popped;
 }
 
-typedef struct Value_ Value;
-struct Value_ {
-	enum { VALUE_NUMBER, VALUE_VECTOR } type;
-	union {
-		long value; /* Number */
-	};
-};
-
 typedef struct ASTNode_* ASTNode;
 struct ASTNode_ {
 	enum { AST_BINOP, AST_NUMBER, AST_UNOP } type;
@@ -67,7 +59,7 @@ struct ASTNode_ {
 			char *dyad;
 			ASTNode right;
 		};
-		long value; /* Number */
+		Value value; /* Number */
 		struct { /* Unop */
 			char *monad;
 			ASTNode rest;
@@ -84,11 +76,11 @@ ASTNode make_node(void)
 }
 
 /* Returns a char* of the node to string, caller must free. */
-char *stringify(ASTNode n)
+char *Stringify(ASTNode n)
 {
 	switch(n->type) {
 	case AST_BINOP: {
-		char *res=NULL, *left=stringify(n->left), *right=stringify(n->right);
+		char *res=NULL, *left=Stringify(n->left), *right=Stringify(n->right);
 		asprintf(&res, "%s %s %s", left, n->dyad, right);
 		free(left);
 		free(right);
@@ -98,11 +90,11 @@ char *stringify(ASTNode n)
 	}
 	case AST_NUMBER: {
 		char *res = NULL;
-		asprintf(&res, "%ld", n->value);
+		asprintf(&res, "%s", value_stringify(n->value));
 		return res;
 	}
 	case AST_UNOP: {
-		char *res = NULL, *rest = stringify(n->rest);
+		char *res = NULL, *rest = Stringify(n->rest);
 		asprintf(&res, "%s %s", n->monad, rest);
 		free(rest);
 		assert(res);
@@ -113,15 +105,16 @@ char *stringify(ASTNode n)
 	}
 }
 
-long eval(ASTNode n)
+Value Eval(ASTNode n)
 {
 	switch(n->type) {
 	case AST_BINOP:
-		return eval(n->left) + eval(n->right); /* TODO: Ops */
+		return add_values(Eval(n->left), Eval(n->right));
+		/* return Eval(n->left) + Eval(n->right); / TODO: Ops / */
 	case AST_NUMBER:
 		return n->value;
 	case AST_UNOP:
-		return eval(n->rest); /* TODO: Ops */
+		return Eval(n->rest); /* TODO: Ops */
 	}
 }
 
@@ -131,15 +124,14 @@ void free_node(ASTNode n)
 	case AST_BINOP:
 		free(n->left);
 		free(n->right);
-		free(n);
 		break;
 	case AST_NUMBER:
 		break;
 	case AST_UNOP:
 		free(n->rest);
-		free(n);
 		break;
 	}
+	free(n);
 }
 
 ASTNode make_binop(ASTNode left, char *dyad, ASTNode right)
@@ -168,7 +160,7 @@ ASTNode make_number(long val)
 	ASTNode n = make_node();
 	assert(n); /* TODO: Error handling */
 	n->type = AST_NUMBER;
-	n->value = val;
+	n->value = value_make_number(val);
 	return n;
 }
 
@@ -235,11 +227,11 @@ ASTNode Op(struct Parser *p, token t)
 
 int parse(int in, FILE *out)
 {
-	struct Parser *p = make_parser(in);
+	struct Parser *p = parser_make(in);
 	assert(p); /* TODO: Error handling */
 	ASTNode tree = Expr(p, next(p));
-	fprintf(out, "Got %ld\n", eval(tree));
+	fprintf(out, "Got %s\n", Stringify(tree));
 	free_node(tree);
-	free_parser(p);
+	parser_free(p);
 	return 0;
 }

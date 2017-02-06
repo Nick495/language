@@ -39,6 +39,7 @@ static token alloc_token(size_t len, token prev)
 		t->value = new;
 		t->alloced = len;
 	}
+	assert_valid_token(t);
 	return t;
 
 	free(t->value);

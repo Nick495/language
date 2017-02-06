@@ -11,9 +11,9 @@ all: directories parse print_tokens
 directories:
 	mkdir -p $(BIN) $(OBJ)
 
-parse: $(SRC)/drivers/parse.c lex.o parse.o token.o string.o
-	clang $(CFLAGS) -o $(BIN)/parse $(SRC)/drivers/parse.c \
-		$(OBJ)/lex.o $(OBJ)/parse.o $(OBJ)/token.o $(OBJ)/string.o
+parse: $(SRC)/drivers/parse.c lex.o parse.o token.o string.o value.o
+	clang $(CFLAGS) -o $(BIN)/parse $(SRC)/drivers/parse.c $(OBJ)/lex.o \
+		$(OBJ)/parse.o $(OBJ)/token.o $(OBJ)/string.o $(OBJ)/value.o
 
 print_tokens: $(SRC)/drivers/print_tokens.c lex.o print.o token.o string.o
 	clang $(CFLAGS) -o $(BIN)/print_tokens $(SRC)/drivers/print_tokens.c \
@@ -36,3 +36,6 @@ string.o: $(SRC)/string/string.c $(SRC)/string/string.h
 
 token.o: $(SRC)/token/token.c $(SRC)/token/token.h
 	clang -c $(CFLAGS) -o $(OBJ)/token.o $(SRC)/token/token.c
+
+value.o: $(SRC)/value/value.c $(SRC)/value/value.h
+	clang -c $(CFLAGS) -o $(OBJ)/value.o $(SRC)/value/value.c

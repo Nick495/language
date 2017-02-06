@@ -7,8 +7,8 @@
 
 typedef struct string_ *string;
 
-string make_string(void); /* Requires calling free_string() afterward. */
-void free_string(string); /* Deallocates string allocated by init_string() */
+string string_make(void); /* Requires calling string_free() afterward. */
+void string_free(string); /* Deallocates string allocated by init_string() */
 
 void empty_string(string); /* Empty the string. */
 size_t get_length(string); /* Returns the string's length */

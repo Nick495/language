@@ -22,7 +22,7 @@ void empty_string(string s)
 	assert_valid_string(s);
 }
 
-void free_string(string s)
+void string_free(string s)
 {
 	if (s) {
 		if (s->text) {
@@ -93,7 +93,7 @@ int string_append_cstr(string s, char *t)
 	return 0;
 }
 
-string make_string(void)
+string string_make(void)
 {
 	string s = malloc(sizeof *s);
 	if (!s) goto fail_malloc_string;
@@ -106,6 +106,6 @@ string make_string(void)
 
 fail_malloc_text:
 fail_malloc_string:
-	free_string(s);
+	string_free(s);
 	return NULL;
 }

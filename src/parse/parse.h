@@ -4,5 +4,6 @@
 #include <string.h>         /* strerror() */
 #include <errno.h>          /* errno */
 #include "../token/token.h" /* Tokens from lexer. (token) */
+#include "../value/value.h" /* Value types */
 
 int parse(int in, FILE *out);
