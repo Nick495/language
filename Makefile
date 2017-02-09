@@ -11,9 +11,10 @@ all: directories parse print_tokens
 directories:
 	mkdir -p $(BIN) $(OBJ)
 
-parse: $(SRC)/drivers/parse.c lex.o parse.o token.o string.o value.o
-	clang $(CFLAGS) -o $(BIN)/parse $(SRC)/drivers/parse.c $(OBJ)/lex.o \
-		$(OBJ)/parse.o $(OBJ)/token.o $(OBJ)/string.o $(OBJ)/value.o
+parse: $(SRC)/drivers/parse.c lex.o parse.o token.o string.o value.o ASTNode.o
+	clang $(CFLAGS) -o $(BIN)/parse $(SRC)/drivers/parse.c \
+		$(OBJ)/lex.o $(OBJ)/parse.o $(OBJ)/token.o $(OBJ)/string.o \
+		$(OBJ)/value.o $(OBJ)/ASTNode.o
 
 print_tokens: $(SRC)/drivers/print_tokens.c lex.o print.o token.o string.o
 	clang $(CFLAGS) -o $(BIN)/print_tokens $(SRC)/drivers/print_tokens.c \
@@ -39,3 +40,6 @@ token.o: $(SRC)/token/token.c $(SRC)/token/token.h
 
 value.o: $(SRC)/value/value.c $(SRC)/value/value.h
 	clang -c $(CFLAGS) -o $(OBJ)/value.o $(SRC)/value/value.c
+
+ASTNode.o: $(SRC)/parse/ASTNode.c $(SRC)/parse/ASTNode.h
+	clang -c $(CFLAGS) -o $(OBJ)/ASTNode.o $(SRC)/parse/ASTNode.c

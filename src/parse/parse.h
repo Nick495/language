@@ -5,5 +5,6 @@
 #include <errno.h>          /* errno */
 #include "../token/token.h" /* Tokens from lexer. (token) */
 #include "../value/value.h" /* Value types */
+#include "ASTNode.h"		/* ASTNode definitions */
 
 int parse(int in, FILE *out);
