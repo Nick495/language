@@ -1,22 +1,19 @@
 #include "lex.h"
 
 struct lexer {
-	char *name;
+	char *file_name;
 	FILE *input;
-	size_t start;
-	size_t position;
-	size_t width;
 	string lexeme;
 	int outfd;
 	token token_cache;
 };
 
-struct lexer *lexer_make(char *name, FILE *in, int out)
+struct lexer *lexer_make(char *file_name, FILE *in, int out)
 {
 	struct lexer *l = malloc(sizeof *l);
 	assert(l); /* TODO: Error handling */
 	memset(l, 0, sizeof *l);
-	l->name = name;
+	l->file_name = name;
 	l->input = in;
 	l->outfd = out;
 	l->lexeme = string_make();
@@ -35,8 +32,9 @@ void lexer_free(struct lexer *l)
 
 static void emit_token(struct lexer *l, enum token_type type)
 {
-	l->token_cache = make_token(type,
-			get_text(l->lexeme), get_length(l->lexeme) + 1, l->token_cache);
+	/* Cache allocated tokens inside the lexer to avoid malloc()s */
+	l->token_cache = make_token(type, get_text(l->lexeme),
+			get_length(l->lexeme) + 1, l->token_cache);
 	assert(l->token_cache); /* TODO: Error handling */
 	assert(!write_token(l->token_cache, l->outfd)); /* TODO: Error handling */
 	empty_string(l->lexeme);
@@ -126,8 +124,7 @@ static void *lex_start(struct lexer *l)
 			return NULL;
 		} else {
 			fprintf(stderr, "Error. Bad character: %c\n", c);
-			assert(1); /* TODO: Error handling. */
-			return NULL;
+			return NULL; /* TODO: Error handling */
 		}
 	}
 }
