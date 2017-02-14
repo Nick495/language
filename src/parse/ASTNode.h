@@ -21,5 +21,7 @@ ASTNode make_binop(ASTNode left, char *dyad, ASTNode right);
 
 ASTNode make_unop(char *monad, ASTNode right);
 
-ASTNode make_number(long val);
+ASTNode make_number(char *val);
+ASTNode make_vector(char *val);
+ASTNode extend_vector(ASTNode vec, char *val);
 #endif

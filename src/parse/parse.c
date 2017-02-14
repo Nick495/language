@@ -3,10 +3,10 @@
 #define BUF_CAP 1
 struct Parser {
 	int infd;
-	token buf[BUF_CAP];
 	token last_popped;
 	size_t buf_use;
 	size_t buf_cap;
+	token buf[BUF_CAP];
 };
 
 struct Parser *parser_make(int in)
@@ -81,10 +81,20 @@ ASTNode Expr(struct Parser *p, token t)
 	}
 }
 
-ASTNode Number(struct Parser *p, token t)
+/* Note, can seperate into two functions. */
+ASTNode NumberOrVector(struct Parser *p, token t)
 {
-	(void)p; /* Silence unused variable warning. */
-	return make_number(strtol(get_value(t), NULL, 10));
+	if (get_type(peek(p)) != TOKEN_NUMBER) { // t is a number.
+		return make_number(get_value(t));
+	}
+
+	// Otherwise, we have a vector.
+	ASTNode vec = make_vector(get_value(t));
+	while (get_type(peek(p)) == TOKEN_NUMBER) {
+		t = next(p);
+		vec = extend_vector(vec, get_value(t));
+	}
+	return vec;
 }
 
 // Grammar from Rob Pike's talk
@@ -98,14 +108,13 @@ ASTNode Op(struct Parser *p, token t)
 {
 	ASTNode expr;
 	switch(get_type(t)) {
-	case TOKEN_LPAREN: {
+	case TOKEN_LPAREN:
 		expr = Expr(p, next(p));
-		token t = next(p);
+		t = next(p);
 		assert(get_type(t) == TOKEN_RPAREN); /* TODO: Error handling. */
 		break;
-	}
 	case TOKEN_NUMBER:
-		expr = Number(p, t);
+		expr = NumberOrVector(p, t);
 		break;
 	case TOKEN_OPERATOR:
 		expr = make_unop(get_value(t), Expr(p, next(p)));

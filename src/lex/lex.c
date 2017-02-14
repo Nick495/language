@@ -13,7 +13,7 @@ struct lexer *lexer_make(char *file_name, FILE *in, int out)
 	struct lexer *l = malloc(sizeof *l);
 	assert(l); /* TODO: Error handling */
 	memset(l, 0, sizeof *l);
-	l->file_name = name;
+	l->file_name = file_name;
 	l->input = in;
 	l->outfd = out;
 	l->lexeme = string_make();
