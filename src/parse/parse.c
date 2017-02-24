@@ -133,7 +133,7 @@ int parse(int in, FILE *out)
 	assert(p); /* TODO: Error handling */
 	ASTNode tree = Expr(p, next(p));
 	char *result = value_stringify(Eval(tree));
-	fprintf(out, "Got %s\n", result);
+	fprintf(out, "%s\n", result);
 	free(result);
 	free_node(tree);
 	parser_free(p);

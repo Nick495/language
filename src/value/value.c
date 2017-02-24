@@ -73,9 +73,11 @@ char *value_stringify(Value v)
 	/* ' ' between values, 2 '\n's between dimensions, and '\0' terminator. */
 	char *tmp = malloc(len);
 	assert(tmp); /* TODO: Error handling */
-	for (size_t i = 0, pos = 0; i < v->elecount; ++i) {
+	size_t pos = 0;
+	for (size_t i = 0; i < v->elecount; ++i) {
 		pos += snprintf((tmp + pos), len - pos, "%ld ", v->sd[v->rank + i]);
 	}
+	tmp[--pos] = '\0'; /* Remove trailing space */
 	return tmp;
 }
 
@@ -87,7 +89,7 @@ static size_t agreed_prefix(Value a, Value w)
 			return i;
 		}
 	}
-	return w->rank;
+	return w->rank + 1;
 }
 
 /* Creates a Value with the same shape, type, and elecount as that given. */
@@ -105,23 +107,31 @@ static Value copy_value_container(Value v)
 	return cpy;
 }
 
+static Value add_scalar(Value sum, Value vec, Value scalar)
+{
+	for (size_t i = 0; i < vec->elecount; ++i) {
+		sum->sd[sum->rank + i] = vec->sd[vec->rank + i] + scalar->sd[0];
+	}
+	return sum;
+}
+
 Value add_values(Value a, Value w)
 {
-	if (a->rank > w->rank) { /* Addition is commutative, so swap. */
+	if (a->rank < w->rank) { /* Addition is commutative, so swap. */
 		Value t = a;
 		a = w;
 		w = t;
-	} /* Now a->rank <= w->rank */
+	} /* Now a->rank >= w->rank */
 	Value sum = copy_value_container(w);
 	assert(sum);
-	if (a->rank == 0 && w->rank == 0) {
-		sum->sd[0] = w->sd[0] + a->sd[0];
-		return sum;
+	if (w->rank == 0) {
+		return add_scalar(sum, a, w);
 	}
-	assert(agreed_prefix(a, w) > 0); /* TODO: Error handling mismatched ranks */
+	/* TODO: Error handling. */
+	/* TODO: Still not correct for prefix agreed case. (Need to duplicated operation). */
 	for (size_t shape = 0, i = 0; shape < agreed_prefix(a, w); ++shape) {
-		for (size_t k = 0; k < w->sd[shape]; k++, i++) {
-			sum->sd[sum->rank + i] = w->sd[w->rank + i] + a->sd[a->rank + i];
+		for (size_t j = 0; j < a->sd[shape]; j++, ++i) {
+			sum->sd[sum->rank + i] = a->sd[a->rank + i] + w->sd[w->rank + i];
 		}
 	}
 	return sum;
