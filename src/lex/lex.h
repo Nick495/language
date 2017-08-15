@@ -7,4 +7,4 @@
 #include "../token/token.h"	  /* Tokens for lexer. (struct token) */
 #include "../string/string.h" /* For lexing tokens (string). */
 
-int lex(FILE *in, int out);
+int lex(FILE* in, int out);

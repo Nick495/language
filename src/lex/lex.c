@@ -58,25 +58,26 @@ static void backup(struct lexer *l, int c)
 }
 
 /*
- * Unfortunately there are no recursive function definitions in C, so subvert
- * the typesystem and use void*
+ * Unfortunately, there are no recursive typedefs in C, so we use a dummy.
+ * Source: comp.lang.c FAQ 1.22 (http://www.c-faq.com/decl/recurfuncp.html)
 */
-typedef void* (*state_func)(struct lexer *);
+typedef int (*state_func)(struct lexer *); /* Dummy function pointer. */
+typedef state_func (*state_func_ptr)(struct lexer *);
 
 /* Statefunc prototyes (since they refer to one another, must forward declare */
-static void *lex_start(struct lexer *);
+static state_func lex_start(struct lexer *);
 
-static void *lex_space(struct lexer *l)
+static state_func lex_space(struct lexer *l)
 {
 	int c = next(l);
 	while (isspace(c)) {
 		c = next(l);
 	}
 	backup(l, c);
-	return (void *)lex_start;
+	return (state_func)lex_start;
 }
 
-static void *lex_number(struct lexer *l)
+static state_func lex_number(struct lexer *l)
 {
 	int c = next(l);
 	while (isdigit(c)) {
@@ -85,10 +86,10 @@ static void *lex_number(struct lexer *l)
 	}
 	backup(l, c);
 	emit_token(l, TOKEN_NUMBER);
-	return (void *)lex_start;
+	return (state_func)lex_start;
 }
 
-static void *lex_operator(struct lexer *l)
+static state_func lex_operator(struct lexer *l)
 {
 	int c = next(l);
 	if (c != '+') {
@@ -96,22 +97,22 @@ static void *lex_operator(struct lexer *l)
 	}
 	string_append_char(l->lexeme, c);
 	emit_token(l, TOKEN_OPERATOR);
-	return (void *)lex_start;
+	return (state_func)lex_start;
 }
 
-static void *lex_start(struct lexer *l)
+static state_func lex_start(struct lexer *l)
 {
 	for (;;) {
 		int c = next(l);
 		if (isspace(c)) {
 			backup(l, c);
-			return (void *)lex_space;
+			return (state_func)lex_space;
 		} else if (isdigit(c)) {
 			backup(l, c);
-			return (void *)lex_number;
+			return (state_func)lex_number;
 		} else if (c == '+') {
 			backup(l, c);
-			return (void *)lex_operator;
+			return (state_func)lex_operator;
 		} else if (c == '(') {
 			string_append_char(l->lexeme, '(');
 			emit_token(l, TOKEN_LPAREN);
@@ -132,8 +133,8 @@ static void *lex_start(struct lexer *l)
 int lex(FILE *in, int out)
 {
 	struct lexer *l = lexer_make("stdin", in, out);
-	for (state_func state = lex_start; state != NULL;) {
-		state = (state_func) state(l);
+	for (state_func_ptr state = lex_start; state != NULL;) {
+		state = (state_func_ptr) state(l);
 	}
 	lexer_free(l);
 	return 0;
