@@ -7,13 +7,34 @@ struct Value_ {
 			/* Inspired by Roger Hui's An Implementation of J */
 			enum type vec_type; /* TODO: Add other types. */
 			size_t elecount;
-			unsigned long rank;
 			size_t alloccount;
+			unsigned long rank;
 			unsigned long sd[1]; /* Shape & Data array. */
 			/* Preallocated for singleton case. (Data: 1 value). */
 		};
 	};
 };
+
+static void print_value(Value v)
+{
+	fprintf(stderr, "DEBUG:\n");
+	fprintf(stderr, "refcount: %zu\n", v->refcount);
+	switch(v->type) {
+	case VECTOR:
+		fprintf(stderr, "type: vector\n");
+		fprintf(stderr, "vec_type: %d\n", v->vec_type);
+		fprintf(stderr, "elecount: %zu\n", v->elecount);
+		fprintf(stderr, "alloccount: %zu\n", v->alloccount);
+		fprintf(stderr, "rank: %zu\n", v->rank);
+		break;
+	case INTEGER:
+		fprintf(stderr, "type: integer\n");
+		break;
+	default:
+		fprintf(stderr, "type: invalid\n");
+	}
+	return;
+}
 
 Value value_make_number(unsigned long value)
 {
@@ -24,6 +45,7 @@ Value value_make_number(unsigned long value)
 	num->elecount = 1;
 	num->alloccount = 1;
 	num->vec_type = INTEGER;
+	num->type = INTEGER;
 	num->sd[0] = value;
 	return num;
 }
@@ -39,6 +61,7 @@ Value value_make_vector(unsigned long value)
 	vec->elecount = 1;
 	vec->alloccount = init_alloccount;
 	vec->vec_type = INTEGER;
+	vec->type = VECTOR;
 	vec->sd[0] = 1;
 	vec->sd[1] = value;
 	return vec;
@@ -89,7 +112,7 @@ static size_t agreed_prefix(Value a, Value w)
 			return i;
 		}
 	}
-	return w->rank + 1;
+	return w->rank;
 }
 
 /* Creates a Value with the same shape, type, and elecount as that given. */
@@ -123,9 +146,13 @@ Value add_values(Value a, Value w)
 		w = t;
 	} /* Now a->rank >= w->rank */
 	Value sum = copy_value_container(w);
-	assert(sum);
+	assert(sum); /* TODO: Error handling. */
 	if (w->rank == 0) {
 		return add_scalar(sum, a, w);
+	}
+	if (agreed_prefix(a, w) != w->rank) {
+		fprintf(stdout, "Error: mismatched shapes.\n");
+		exit(EXIT_FAILURE); /* TODO: Error handling */
 	}
 	/* TODO: Error handling. */
 	/* TODO: Still not correct for prefix agreed case. (Need to duplicated operation). */
