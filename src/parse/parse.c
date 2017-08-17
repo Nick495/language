@@ -2,18 +2,19 @@
 
 #define BUF_CAP 1
 struct Parser {
-	int infd;
+	struct lexer *lex;
 	token last_popped;
 	size_t buf_use;
 	size_t buf_cap;
 	token buf[BUF_CAP];
 };
 
-struct Parser *parser_make(int in)
+struct Parser *parser_make(FILE* in)
 {
 	struct Parser *p = mem_alloc(sizeof *p);
 	assert(p); /* TODO: Error handling. */
-	p->infd = in;
+	p->lex = lexer_make("stdin", in);
+	assert(p->lex); /* TODO: Error handling. */
 	p->buf_use = 0;
 	p->buf_cap = BUF_CAP;
 	for (size_t i = 0; i < BUF_CAP; ++i) {
@@ -29,8 +30,7 @@ void parser_free(struct Parser *p)
 		for (size_t i = 0; i < BUF_CAP; ++i) {
 			free_token(p->buf[i]);
 		}
-		free_token(p->last_popped);
-		close(p->infd);
+		lexer_free(p->lex);
 	}
 	free(p);
 }
@@ -38,7 +38,7 @@ void parser_free(struct Parser *p)
 token peek(struct Parser *p)
 {
 	if (p->buf_use < p->buf_cap) {
-		p->buf[p->buf_use++] = read_token(p->infd, NULL);
+		p->buf[p->buf_use++] = lex_token(p->lex);
 	}
 	return p->buf[p->buf_use - 1];
 }
@@ -52,7 +52,7 @@ token next(struct Parser *p)
 		p->buf[p->buf_use - 1] = NULL;
 		p->buf_use -= 1;
 	} else {
-		p->last_popped = read_token(p->infd, p->last_popped);
+		p->last_popped = lex_token(p->lex);
 	}
 	return p->last_popped;
 }
@@ -127,7 +127,7 @@ ASTNode Op(struct Parser *p, token t)
 	return expr; /* TODO: Indexing. */
 }
 
-int parse(int in, FILE *out)
+int parse(FILE *in, FILE *out)
 {
 	struct Parser *p = parser_make(in);
 	assert(p); /* TODO: Error handling */

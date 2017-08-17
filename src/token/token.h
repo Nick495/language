@@ -25,8 +25,4 @@ token make_token(enum token_type type, char* str, size_t strlen, token prev);
 void free_token(token);
 char* get_value(token);
 enum token_type get_type(token);
-
-int write_token(token t, int out);
-token read_token(int in, token prev);
-
 #endif

@@ -26,14 +26,22 @@ static void print_token(token t, FILE *out)
 	fprintf(out, "Found %s : %s\n", name, get_value(t));
 }
 
-int print(int in, FILE *out)
+int print(FILE *in, FILE *out)
 {
 	token t = NULL;
-	for (t= read_token(in, t); get_type(t) != TOKEN_EOF; t= read_token(in, t)) {
+	struct lexer *lex = lexer_make("stdin", in); 
+	assert(lex); /* TODO: Error handling. */
+
+	for (t = lex_token(lex); get_type(t) != TOKEN_EOF; t = lex_token(lex)) {
 		print_token(t, out);
 	}
 	free_token(t);
-	if (close(in)) {
+	if (fclose(in)) {
+		fprintf(stderr, "%s\n", strerror(errno));
+		fclose(out);
+		return errno;
+	}
+	if (fclose(out)) {
 		fprintf(stderr, "%s\n", strerror(errno));
 		return errno;
 	}

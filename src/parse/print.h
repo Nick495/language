@@ -4,6 +4,7 @@
 #include <string.h>	        /* strerror() */
 #include <unistd.h>	        /* read() */
 
+#include "lex/lex.h"
 #include "token/token.h"	/* Tokens for lexer. (struct token) */
 
-int print(int in, FILE *out);
+int print(FILE* in, FILE *out);
