@@ -17,9 +17,9 @@ static void assert_valid_token(token t)
 void free_token(token t)
 {
 	if (t) {
-		free(t->value);
+		mem_dealloc(t->value);
 	}
-	free(t);
+	mem_dealloc(t);
 }
 
 static token alloc_token(size_t len, token prev)
@@ -28,23 +28,23 @@ static token alloc_token(size_t len, token prev)
 	if (prev) {
 		t = prev;
 	} else {
-		t = malloc(sizeof *t);
-		if (!t) goto fail_malloc_token;
+		t = mem_alloc(sizeof *t);
+		if (!t) goto fail_mem_alloc_token;
 		t->value = NULL;
 		t->alloced = 0;
 	}
 	if (t->alloced < len) {
-		char *new = realloc(t->value, sizeof t->value * len);
-		if (!new) goto fail_malloc_value;
+		char *new = mem_realloc(t->value, sizeof t->value * len);
+		if (!new) goto fail_mem_alloc_value;
 		t->value = new;
 		t->alloced = len;
 	}
 	assert_valid_token(t);
 	return t;
 
-	free(t->value);
-fail_malloc_value:
-fail_malloc_token:
+	mem_dealloc(t->value);
+fail_mem_alloc_value:
+fail_mem_alloc_token:
 	free_token(t);
 	return NULL;
 }

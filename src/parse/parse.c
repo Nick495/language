@@ -11,7 +11,7 @@ struct Parser {
 
 struct Parser *parser_make(int in)
 {
-	struct Parser *p = malloc(sizeof *p);
+	struct Parser *p = mem_alloc(sizeof *p);
 	assert(p); /* TODO: Error handling. */
 	p->infd = in;
 	p->buf_use = 0;

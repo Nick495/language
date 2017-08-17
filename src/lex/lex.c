@@ -1,5 +1,12 @@
 #include "lex.h"
 
+struct lexer; /* Must forward declare for the sake of typedefs. */
+/*
+ * Unfortunately, there are no recursive typedefs in C, so we use a dummy.
+ * Source: comp.lang.c FAQ 1.22 (http://www.c-faq.com/decl/recurfuncp.html)
+*/
+typedef int (*state_func)(struct lexer *); /* Dummy function pointer. */
+typedef state_func (*state_func_ptr)(struct lexer *);
 struct lexer {
 	char *file_name;
 	FILE *input;
@@ -10,7 +17,7 @@ struct lexer {
 
 struct lexer *lexer_make(char *file_name, FILE *in, int out)
 {
-	struct lexer *l = malloc(sizeof *l);
+	struct lexer *l = mem_alloc(sizeof *l);
 	assert(l); /* TODO: Error handling */
 	memset(l, 0, sizeof *l);
 	l->file_name = file_name;
@@ -32,7 +39,7 @@ void lexer_free(struct lexer *l)
 
 static void emit_token(struct lexer *l, enum token_type type)
 {
-	/* Cache allocated tokens inside the lexer to avoid malloc()s */
+	/* Cache allocated tokens inside the lexer to avoid mem_alloc()s */
 	l->token_cache = make_token(type, get_text(l->lexeme),
 			get_length(l->lexeme) + 1, l->token_cache);
 	assert(l->token_cache); /* TODO: Error handling */
@@ -57,14 +64,7 @@ static void backup(struct lexer *l, int c)
 	ungetc(c, l->input);
 }
 
-/*
- * Unfortunately, there are no recursive typedefs in C, so we use a dummy.
- * Source: comp.lang.c FAQ 1.22 (http://www.c-faq.com/decl/recurfuncp.html)
-*/
-typedef int (*state_func)(struct lexer *); /* Dummy function pointer. */
-typedef state_func (*state_func_ptr)(struct lexer *);
-
-/* Statefunc prototyes (since they refer to one another, must forward declare */
+/* Statefunc prototyes- since they refer to each other, must forward declare */
 static state_func lex_start(struct lexer *);
 
 static state_func lex_space(struct lexer *l)

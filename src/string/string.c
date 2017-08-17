@@ -100,8 +100,8 @@ string string_make(void)
 	s->text = malloc(sizeof *s->text * DEFAULT);
 	if (!s->text) goto fail_malloc_text;
 
-	empty_string(s);
 	s->cap = DEFAULT;
+	empty_string(s);
 	return s;
 
 fail_malloc_text:

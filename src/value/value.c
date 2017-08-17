@@ -38,7 +38,7 @@ static void print_value(Value v)
 
 Value value_make_number(unsigned long value)
 {
-	Value num = malloc(sizeof *num); /* Singleton values are presized. */
+	Value num = mem_alloc(sizeof *num); /* Singleton values are presized. */
 	assert(num); /* TODO: Error handling */
 	num->refcount = 1;
 	num->rank = 0;
@@ -54,7 +54,7 @@ Value value_make_vector(unsigned long value)
 {
 	const unsigned long init_rank = 1;
 	const unsigned long init_alloccount = 10;
-	Value vec = malloc(sizeof *vec + sizeof vec->sd[0] * (10 + 1));
+	Value vec = mem_alloc(sizeof *vec + sizeof vec->sd[0] * (10 + 1));
 	assert(vec); /* TODO: Error handling */
 	vec->refcount = 1;
 	vec->rank = init_rank;
@@ -71,7 +71,7 @@ Value value_extend_vector(Value v, unsigned long val)
 {
 	if (v->elecount == v->alloccount) {
 		v->alloccount *= 2;
-		v = realloc(v, sizeof *v + sizeof v->sd[0] * (v->alloccount + v->rank));
+		v =mem_realloc(v, sizeof *v +sizeof v->sd[0] *(v->alloccount +v->rank));
 	}
 	assert(v);
 	v->sd[v->rank - 1]++;
@@ -84,7 +84,7 @@ void value_free(Value v)
 	assert(v);
 	v->refcount--;
 	if (v->refcount == 0) {
-		free(v);
+		mem_dealloc(v);
 	}
 }
 
@@ -94,7 +94,7 @@ char *value_stringify(Value v)
 	/* I.e. the maximum length of an integer printed in decimal. */
 	const size_t len = (UINT64_DIGITS + 1) * (v->elecount + 2) * (v->rank + 1);
 	/* ' ' between values, 2 '\n's between dimensions, and '\0' terminator. */
-	char *tmp = malloc(len);
+	char *tmp = mem_alloc(len);
 	assert(tmp); /* TODO: Error handling */
 	size_t pos = 0;
 	for (size_t i = 0; i < v->elecount; ++i) {
@@ -119,7 +119,7 @@ static size_t agreed_prefix(Value a, Value w)
 static Value copy_value_container(Value v)
 {
 	/* NOTE: This is actually oversizing the array for many types. */
-	Value cpy = malloc(sizeof *cpy + sizeof v->sd[0] * (v->elecount + v->rank));
+	Value cpy = mem_alloc(sizeof *cpy +sizeof v->sd[0] *(v->elecount +v->rank));
 	assert(cpy); /* TODO: Error handling */
 	cpy->refcount = 1;
 	cpy->rank = v->rank;
@@ -155,7 +155,10 @@ Value add_values(Value a, Value w)
 		exit(EXIT_FAILURE); /* TODO: Error handling */
 	}
 	/* TODO: Error handling. */
-	/* TODO: Still not correct for prefix agreed case. (Need to duplicated operation). */
+	/* TODO:
+	 * Still not correct for prefix agreed case.
+	 * (Need to duplicated operation).
+	*/
 	for (size_t shape = 0, i = 0; shape < agreed_prefix(a, w); ++shape) {
 		for (size_t j = 0; j < a->sd[shape]; j++, ++i) {
 			sum->sd[sum->rank + i] = a->sd[a->rank + i] + w->sd[w->rank + i];

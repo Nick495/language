@@ -1,6 +1,6 @@
 SHELL = /bin/sh
 
-CFLAGS = -O2 -g -Wall -Wextra -pedantic -std=c11
+CFLAGS = -O2 -g -Wall -Wextra -pedantic -std=c11 -I src
 
 BIN = ./bin
 OBJ = ./obj
@@ -11,14 +11,17 @@ all: directories parse print_tokens
 directories:
 	mkdir -p $(BIN) $(OBJ)
 
-parse: $(SRC)/drivers/parse.c lex.o parse.o token.o string.o value.o ASTNode.o
+parse: $(SRC)/drivers/parse.c \
+		lex.o parse.o token.o string.o value.o ASTNode.o mem.o
 	clang $(CFLAGS) -o $(BIN)/parse $(SRC)/drivers/parse.c \
 		$(OBJ)/lex.o $(OBJ)/parse.o $(OBJ)/token.o $(OBJ)/string.o \
-		$(OBJ)/value.o $(OBJ)/ASTNode.o
+		$(OBJ)/value.o $(OBJ)/ASTNode.o $(OBJ)/mem.o
 
-print_tokens: $(SRC)/drivers/print_tokens.c lex.o print.o token.o string.o
+print_tokens: $(SRC)/drivers/print_tokens.c \
+		lex.o print.o token.o string.o mem.o
 	clang $(CFLAGS) -o $(BIN)/print_tokens $(SRC)/drivers/print_tokens.c \
-		$(OBJ)/lex.o $(OBJ)/print.o $(OBJ)/token.o $(OBJ)/string.o
+		$(OBJ)/lex.o $(OBJ)/print.o $(OBJ)/token.o $(OBJ)/string.o \
+		$(OBJ)/mem.o
 
 clean:
 	rm -rf $(OBJ) $(BIN)
@@ -43,3 +46,6 @@ value.o: $(SRC)/value/value.c $(SRC)/value/value.h
 
 ASTNode.o: $(SRC)/parse/ASTNode.c $(SRC)/parse/ASTNode.h
 	clang -c $(CFLAGS) -o $(OBJ)/ASTNode.o $(SRC)/parse/ASTNode.c
+
+mem.o: $(SRC)/mem/mem.c $(SRC)/mem/mem.h
+	clang -c $(CFLAGS) -o $(OBJ)/mem.o $(SRC)/mem/mem.c

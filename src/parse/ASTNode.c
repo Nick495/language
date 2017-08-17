@@ -20,7 +20,7 @@ struct ASTNode_ {
 /* Uniform allocation (Can make a pool allocator). */
 ASTNode make_node(void)
 {
-	ASTNode n = malloc(sizeof *n);
+	ASTNode n = mem_alloc(sizeof *n);
 	assert(n); /* TODO: Error handling */
 	return n;
 }
