@@ -14,7 +14,7 @@ static void assert_valid_token(token t)
 }
 
 /* Handles null case for internal code reuse. */
-void free_token(token t)
+void token_free(token t)
 {
 	if (t) {
 		mem_dealloc(t->value);
@@ -45,11 +45,11 @@ static token alloc_token(size_t len, token prev)
 	mem_dealloc(t->value);
 fail_mem_alloc_value:
 fail_mem_alloc_token:
-	free_token(t);
+	token_free(t);
 	return NULL;
 }
 
-token make_token(enum token_type type, char *s, size_t slen, token prev)
+token token_make(enum token_type type, char *s, size_t slen, token prev)
 {
 	slen += 1; /* Include '\0' */
 	token t = alloc_token(slen, prev);
@@ -60,7 +60,7 @@ token make_token(enum token_type type, char *s, size_t slen, token prev)
 	assert_valid_token(t);
 	return t;
 
-	free_token(t);
+	token_free(t);
 fail_alloc_token:
 	return NULL;
 }

@@ -32,18 +32,19 @@ int print(FILE *in, FILE *out)
 	struct lexer *lex = lexer_make("stdin", in); 
 	assert(lex); /* TODO: Error handling. */
 
-	for (t = lex_token(lex); get_type(t) != TOKEN_EOF; t = lex_token(lex)) {
+	for (t =lex_token(lex, t); get_type(t) != TOKEN_EOF; t =lex_token(lex, t)) {
 		print_token(t, out);
 	}
-	free_token(t);
+	token_free(t);
 	if (fclose(in)) {
-		fprintf(stderr, "%s\n", strerror(errno));
+		fprintf(stderr, "error in: %s\n", strerror(errno));
 		fclose(out);
 		return errno;
 	}
 	if (fclose(out)) {
-		fprintf(stderr, "%s\n", strerror(errno));
+		fprintf(stderr, "error out: %s\n", strerror(errno));
 		return errno;
 	}
+	lexer_free(lex);
 	return 0;
 }

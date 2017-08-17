@@ -28,7 +28,7 @@ void parser_free(struct Parser *p)
 {
 	if (p) {
 		for (size_t i = 0; i < BUF_CAP; ++i) {
-			free_token(p->buf[i]);
+			token_free(p->buf[i]);
 		}
 		lexer_free(p->lex);
 	}
@@ -38,21 +38,22 @@ void parser_free(struct Parser *p)
 token peek(struct Parser *p)
 {
 	if (p->buf_use < p->buf_cap) {
-		p->buf[p->buf_use++] = lex_token(p->lex);
+		p->buf[p->buf_use] = lex_token(p->lex, p->buf[p->buf_use]);
+		p->buf_use++;
 	}
 	return p->buf[p->buf_use - 1];
 }
 
 token next(struct Parser *p)
 {
-	free_token(p->last_popped);
+	token_free(p->last_popped);
 	p->last_popped = NULL;
 	if (p->buf_use > 0) {
 		p->last_popped = p->buf[p->buf_use - 1];
 		p->buf[p->buf_use - 1] = NULL;
 		p->buf_use -= 1;
 	} else {
-		p->last_popped = lex_token(p->lex);
+		p->last_popped = lex_token(p->lex, p->last_popped);
 	}
 	return p->last_popped;
 }

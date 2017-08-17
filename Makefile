@@ -12,15 +12,15 @@ directories:
 	mkdir -p $(BIN) $(OBJ)
 
 parse: $(SRC)/drivers/parse.c \
-		lex.o parse.o token.o string.o value.o ASTNode.o mem.o
+		lex.o parse.o token.o value.o ASTNode.o mem.o
 	clang $(CFLAGS) -o $(BIN)/parse $(SRC)/drivers/parse.c \
-		$(OBJ)/lex.o $(OBJ)/parse.o $(OBJ)/token.o $(OBJ)/string.o \
+		$(OBJ)/lex.o $(OBJ)/parse.o $(OBJ)/token.o \
 		$(OBJ)/value.o $(OBJ)/ASTNode.o $(OBJ)/mem.o
 
 print_tokens: $(SRC)/drivers/print_tokens.c \
-		lex.o print.o token.o string.o mem.o
+		lex.o print.o token.o mem.o
 	clang $(CFLAGS) -o $(BIN)/print_tokens $(SRC)/drivers/print_tokens.c \
-		$(OBJ)/lex.o $(OBJ)/print.o $(OBJ)/token.o $(OBJ)/string.o \
+		$(OBJ)/lex.o $(OBJ)/print.o $(OBJ)/token.o \
 		$(OBJ)/mem.o
 
 clean:
@@ -34,9 +34,6 @@ print.o: $(SRC)/parse/print.c $(SRC)/token/token.h
 
 parse.o: $(SRC)/parse/parse.c $(SRC)/token/token.h
 	clang -c $(CFLAGS) -o $(OBJ)/parse.o $(SRC)/parse/parse.c
-
-string.o: $(SRC)/string/string.c $(SRC)/string/string.h
-	clang -c $(CFLAGS) -o $(OBJ)/string.o $(SRC)/string/string.c
 
 token.o: $(SRC)/token/token.c $(SRC)/token/token.h
 	clang -c $(CFLAGS) -o $(OBJ)/token.o $(SRC)/token/token.c
