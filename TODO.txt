@@ -1,0 +1,22 @@
+Things to do to improve the interpreter.
+
+Make a unified memory allocator that all allocations can pull from.
+	- Fix memory leaks in ASTNode, Eval, Add Values.
+Refactor lexer and/or parser to give a better interface.
+	- Take concurrency out of the lexer as described by Pike in his Ivy talk.
+	- The parser can then call the lexer directly to grab tokens.
+		- Gets rid of serialization / deserialization, errors from that, &.
+		- Possibly get rid of the string library (do we really need len?)
+			- Possibly set a maximum identifier length? (1024?)
+			- Reducing dynamic allocation is always a win.
+				- Currently lexer only allocs strings aside from itself.
+Make a hashtable implementation for environments / symbols.
+	- xxhash is a fast, cryptographically insecure way to do so.
+	- closed hashing, with <50% occupancy is pretty fast.
+Begin implementing a standard library for the APL.
+	- Start with material used in J, tryapl.org.
+Make a REPL.
+	- editline (BSD licensed).
+Implement parallelism:
+	- (Task?) Throw each operation onto a thread.
+	- (Data?) Throw each block (size?) of array elements on a thread.
