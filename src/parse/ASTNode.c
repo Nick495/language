@@ -26,19 +26,19 @@ ASTNode make_node(void)
 }
 
 /* Returns a char* of the node to string, caller must free. */
-char *Stringify(ASTNode n)
+char* Stringify(ASTNode n)
 {
-	char *res = NULL;
+	char* res = NULL;
 	switch(n->type) {
 	case AST_BINOP: {
-		char *left = Stringify(n->left), *right = Stringify(n->right);
+		char* left = Stringify(n->left), *right = Stringify(n->right);
 		asprintf(&res, "%s %s %s", left, n->dyad, right);
 		free(left);
 		free(right);
 		break;
 	}
 	case AST_UNOP: {
-		char *rest = Stringify(n->rest);
+		char* rest = Stringify(n->rest);
 		asprintf(&res, "%s %s", n->monad, rest);
 		free(rest);
 		break;
@@ -84,7 +84,7 @@ void free_node(ASTNode n)
 	free(n);
 }
 
-ASTNode make_binop(ASTNode left, char *dyad, ASTNode right)
+ASTNode make_binop(ASTNode left, char* dyad, ASTNode right)
 {
 	ASTNode n = make_node();
 	assert(n); /* TODO: Error handling. */
@@ -95,7 +95,7 @@ ASTNode make_binop(ASTNode left, char *dyad, ASTNode right)
 	return n;
 }
 
-ASTNode make_unop(char *monad, ASTNode right)
+ASTNode make_unop(char* monad, ASTNode right)
 {
 	ASTNode n = make_node();
 	assert(n); /* TODO: Error handling. */
@@ -105,12 +105,12 @@ ASTNode make_unop(char *monad, ASTNode right)
 	return n;
 }
 
-static unsigned long parse_num(char *text)
+static unsigned long parse_num(char* text)
 {
 	return strtol(text, NULL, 10);
 }
 
-ASTNode make_number(char *val)
+ASTNode make_number(char* val)
 {
 	ASTNode n = make_node();
 	assert(n); /* TODO: Error handling */
@@ -119,7 +119,7 @@ ASTNode make_number(char *val)
 	return n;
 }
 
-ASTNode make_vector(char *val)
+ASTNode make_vector(char* val)
 {
 	ASTNode n = make_node();
 	assert(n); /* TODO: Error handling */
@@ -128,7 +128,7 @@ ASTNode make_vector(char *val)
 	return n;
 }
 
-ASTNode extend_vector(ASTNode n, char *val)
+ASTNode extend_vector(ASTNode n, char* val)
 {
 	assert(n->type == AST_VECTOR);
 	n->value = value_extend_vector(n->value, parse_num(val));

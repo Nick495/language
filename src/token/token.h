@@ -18,7 +18,7 @@ enum token_type {
 	TOKEN_RPAREN
 };
 
-typedef struct token_ *token;
+typedef struct token_* token;
 
 /* slen = strlen(s) */
 token token_make(enum token_type type, char* str, size_t strlen, token prev);

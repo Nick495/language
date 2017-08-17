@@ -5,6 +5,6 @@
 
 struct lexer;
 
-struct lexer* lexer_make(char *file_name, FILE *in);
-void lexer_free(struct lexer *l);
-token lex_token(struct lexer *l, token prev);
+struct lexer* lexer_make(const char* file_name, FILE* in);
+void lexer_free(struct lexer* l);
+token lex_token(struct lexer* l, token prev);

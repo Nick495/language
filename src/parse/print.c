@@ -1,8 +1,8 @@
 #include "print.h"
 
-static void print_token(token t, FILE *out)
+static void print_token(token t, FILE* out)
 {
-	char *name;
+	char* name;
 	switch(get_type(t)) {
 	case TOKEN_START:
 		name = "start";
@@ -26,10 +26,10 @@ static void print_token(token t, FILE *out)
 	fprintf(out, "Found %s : %s\n", name, get_value(t));
 }
 
-int print(FILE *in, FILE *out)
+int print(FILE* in, FILE *out)
 {
 	token t = NULL;
-	struct lexer *lex = lexer_make("stdin", in); 
+	struct lexer* lex = lexer_make("stdin", in); 
 	assert(lex); /* TODO: Error handling. */
 
 	for (t =lex_token(lex, t); get_type(t) != TOKEN_EOF; t =lex_token(lex, t)) {

@@ -13,19 +13,19 @@ typedef state_func (*state_func_ptr)(struct lexer *);
 static state_func lex_start(struct lexer *);
 
 struct lexer {
-	FILE *input;
+	FILE* input;
 	state_func_ptr state;
 	int emitted;
 	size_t token_len;
 	enum token_type token_type;
 	token token_cache;
-	char *file_name;
+	const char* file_name;
 	char token_str[2048];
 };
 
-struct lexer* lexer_make(char *file_name, FILE *in)
+struct lexer* lexer_make(const char* file_name, FILE *in)
 {
-	struct lexer *l = mem_alloc(sizeof *l);
+	struct lexer* l = mem_alloc(sizeof *l);
 	assert(l); /* TODO: Error handling */
 	memset(l, 0, sizeof *l);
 	l->file_name = file_name;
@@ -34,7 +34,7 @@ struct lexer* lexer_make(char *file_name, FILE *in)
 	return l;
 }
 
-void lexer_free(struct lexer *l)
+void lexer_free(struct lexer* l)
 {
 	assert(l);
 	token_free(l->token_cache);
@@ -42,20 +42,20 @@ void lexer_free(struct lexer *l)
 	free(l);
 }
 
-static void append_char(struct lexer *l, const char c)
+static void append_char(struct lexer* l, const char c)
 {
 	l->token_str[l->token_len++] = c;
 	assert(l->token_len < 2047); /* TODO: Error handling. */
 }
 
-static void append_cstr(struct lexer *l, const char* str)
+static void append_cstr(struct lexer* l, const char* str)
 {
 	const size_t str_len = strlen(str);
 	assert(l->token_len + str_len < 2047); /* TODO: Error handling. */
 	memcpy(&l->token_str[l->token_len], str, str_len);
 }
 
-static void emit_token(struct lexer *l, enum token_type type)
+static void emit_token(struct lexer* l, enum token_type type)
 {
 	/* Cache allocated tokens inside the lexer to avoid mem_alloc()s */
 	/* TODO: Remove copy here by refactoring empty_string & token_make? */
@@ -73,24 +73,24 @@ static void emit_token(struct lexer *l, enum token_type type)
 	return;
 }
 
-static int next(struct lexer *l)
+static int next(struct lexer* l)
 {
 	return fgetc(l->input);
 }
 
-static int peek(struct lexer *l)
+static int peek(struct lexer* l)
 {
 	int c = fgetc(l->input);
 	ungetc(c, l->input);
 	return c;
 }
 
-static void backup(struct lexer *l, int c)
+static void backup(struct lexer* l, int c)
 {
 	ungetc(c, l->input);
 }
 
-static state_func lex_space(struct lexer *l)
+static state_func lex_space(struct lexer* l)
 {
 	int c = next(l);
 	while (isspace(c)) {
@@ -100,7 +100,7 @@ static state_func lex_space(struct lexer *l)
 	return (state_func)lex_start;
 }
 
-static state_func lex_number(struct lexer *l)
+static state_func lex_number(struct lexer* l)
 {
 	int c = next(l);
 	while (isdigit(c)) {
@@ -112,7 +112,7 @@ static state_func lex_number(struct lexer *l)
 	return (state_func)lex_start;
 }
 
-static state_func lex_operator(struct lexer *l)
+static state_func lex_operator(struct lexer* l)
 {
 	int c = next(l);
 	if (c != '+') {
@@ -123,7 +123,7 @@ static state_func lex_operator(struct lexer *l)
 	return (state_func)lex_start;
 }
 
-static state_func lex_start(struct lexer *l)
+static state_func lex_start(struct lexer* l)
 {
 	int c = next(l);
 	if (isspace(c)) {
@@ -153,7 +153,7 @@ static state_func lex_start(struct lexer *l)
 	}
 }
 
-token lex_token(struct lexer *l, token prev)
+token lex_token(struct lexer* l, token prev)
 {
 	assert(l);
 	while (l->state != NULL && !l->emitted) {

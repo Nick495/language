@@ -4,7 +4,7 @@ struct token_ {
 	enum token_type type;
 	size_t size;
 	size_t alloced;
-	char *value;
+	char* value;
 };
 
 static void assert_valid_token(token t)
@@ -34,7 +34,7 @@ static token alloc_token(size_t len, token prev)
 		t->alloced = 0;
 	}
 	if (t->alloced < len) {
-		char *new = mem_realloc(t->value, sizeof t->value * len);
+		char* new = mem_realloc(t->value, sizeof t->value * len);
 		if (!new) goto fail_mem_alloc_value;
 		t->value = new;
 		t->alloced = len;
@@ -49,7 +49,7 @@ fail_mem_alloc_token:
 	return NULL;
 }
 
-token token_make(enum token_type type, char *s, size_t slen, token prev)
+token token_make(enum token_type type, char* s, size_t slen, token prev)
 {
 	slen += 1; /* Include '\0' */
 	token t = alloc_token(slen, prev);
@@ -71,7 +71,7 @@ enum token_type get_type(token t)
 	return t->type;
 }
 
-char *get_value(token t)
+char* get_value(token t)
 {
 	assert_valid_token(t);
 	return t->value;
