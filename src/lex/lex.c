@@ -15,10 +15,9 @@ static state_func lex_start(struct lexer *);
 struct lexer {
 	FILE* input;
 	state_func_ptr state;
-	int emitted;
 	size_t token_len;
 	enum token_type token_type;
-	token token_cache;
+	int emitted;
 	const char* file_name;
 	char token_str[2048];
 };
@@ -31,7 +30,6 @@ struct lexer* lexer_make(const char* file_name, FILE *in)
 	l->file_name = file_name;
 	l->input = in;
 	l->state = lex_start;
-	l->token_cache = *((token*)(l + sizeof *l));
 	return l;
 }
 
@@ -61,17 +59,14 @@ static void emit_token(struct lexer* l, enum token_type type)
 	/* Cache allocated tokens inside the lexer to avoid mem_alloc()s */
 	/* TODO: Remove copy here by refactoring empty_string & token_make? */
 	l->token_type = type;
-	l->token_cache = token_make(
-			l->token_type,
-			l->token_str,
-			l->token_len,
-			l->token_cache
-	);
-	assert(l->token_cache); /* TODO: Error handling */
-	memset(l->token_str, 0, l->token_len);
-	l->token_len = 0;
 	l->emitted = 1;
 	return;
+}
+
+static void cleanup_token_cache(struct lexer* l)
+{
+	l->token_len = 0;
+	l->emitted = 0;
 }
 
 static int next(struct lexer* l)
@@ -149,15 +144,17 @@ static state_func lex_start(struct lexer* l)
 
 token lex_token(struct lexer* l, token prev)
 {
+	token t;
 	assert(l);
 	while (l->state != NULL && !l->emitted) {
 		l->state = (state_func_ptr) l->state(l);
 	}
-	l->emitted = 0;
-	return token_make(
-		get_type(l->token_cache),
-		get_value(l->token_cache),
-		strlen(get_value(l->token_cache)),
+	t = token_make(
+		l->token_type,
+		l->token_str,
+		l->token_len,
 		prev
 	);
+	cleanup_token_cache(l);
+	return t;
 }
