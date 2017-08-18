@@ -76,7 +76,7 @@ static void emit_token(struct lexer* l, enum token_type type)
 
 static int next(struct lexer* l)
 {
-	return fgetc(l->input);
+	return getc_unlocked(l->input);
 }
 
 static void backup(struct lexer* l, int c)
