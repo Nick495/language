@@ -1,12 +1,10 @@
 #ifndef TOKEN_H_
 #define TOKEN_H_
 
-#include <assert.h>    /* assert() */
-#include <string.h>    /* memcpy() */
-#include <sys/types.h> /* read() */
-#include <sys/uio.h>   /* read() */
-#include <unistd.h>    /* read(), write() */
-#include "mem/mem.h" /* mem_alloc(), mem_realloc(), mem_free() */
+#include <assert.h>		/* assert() */
+#include <string.h>		/* memcpy(), strlen() */
+#include <stddef.h>		/* size_t */
+#include "mem/mem.h"	/* mem_alloc(), mem_realloc(), mem_free() */
 
 #define TOKEN_TYPE_COUNT 3
 enum token_type {
@@ -21,8 +19,9 @@ enum token_type {
 typedef struct token_* token;
 
 /* slen = strlen(s) */
-token token_make(enum token_type type, char* str, size_t strlen, token prev);
+token token_make(enum token_type type, const char* s, size_t slen, token prev);
 void token_free(token);
 char* get_value(token);
 enum token_type get_type(token);
+size_t token_size();
 #endif

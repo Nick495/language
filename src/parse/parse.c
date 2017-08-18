@@ -11,14 +11,14 @@ struct Parser {
 
 struct Parser *parser_make(FILE* in)
 {
-	struct Parser *p = mem_alloc(sizeof *p);
+	struct Parser* p = mem_alloc(sizeof *p + token_size() * BUF_CAP);
 	assert(p); /* TODO: Error handling. */
 	p->lex = lexer_make("stdin", in);
 	assert(p->lex); /* TODO: Error handling. */
 	p->buf_use = 0;
 	p->buf_cap = BUF_CAP;
 	for (size_t i = 0; i < BUF_CAP; ++i) {
-		p->buf[i] = NULL;
+		p->buf[i] = *((token*)(p + sizeof *p + token_size() * i));
 	}
 	p->last_popped = NULL;
 	return p;
@@ -26,12 +26,6 @@ struct Parser *parser_make(FILE* in)
 
 void parser_free(struct Parser *p)
 {
-	if (p) {
-		for (size_t i = 0; i < BUF_CAP; ++i) {
-			token_free(p->buf[i]);
-		}
-		lexer_free(p->lex);
-	}
 	free(p);
 }
 

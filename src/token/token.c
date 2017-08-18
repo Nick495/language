@@ -1,28 +1,26 @@
 #include "token.h"
 
+#define MAX_SIZE 2048
+
 struct token_ {
 	enum token_type type;
 	size_t size;
-	size_t alloced;
-	char* value;
+	char value[MAX_SIZE];
 };
 
 static void assert_valid_token(token t)
 {
 	assert(t);
-	assert(t->value);
+	assert(strlen(t->value) == t->size);
 }
 
 /* Handles null case for internal code reuse. */
 void token_free(token t)
 {
-	if (t) {
-		mem_dealloc(t->value);
-	}
 	mem_dealloc(t);
 }
 
-static token alloc_token(size_t len, token prev)
+static token alloc_token(token prev)
 {
 	token t;
 	if (prev) {
@@ -30,33 +28,26 @@ static token alloc_token(size_t len, token prev)
 	} else {
 		t = mem_alloc(sizeof *t);
 		if (!t) goto fail_mem_alloc_token;
-		t->value = NULL;
-		t->alloced = 0;
 	}
-	if (t->alloced < len) {
-		char* new = mem_realloc(t->value, sizeof t->value * len);
-		if (!new) goto fail_mem_alloc_value;
-		t->value = new;
-		t->alloced = len;
-	}
+	t->value[0] = '\0';
+	t->size = 0;
 	assert_valid_token(t);
 	return t;
 
-	mem_dealloc(t->value);
-fail_mem_alloc_value:
 fail_mem_alloc_token:
 	token_free(t);
 	return NULL;
 }
 
-token token_make(enum token_type type, char* s, size_t slen, token prev)
+token token_make(enum token_type type, const char* s, size_t slen, token prev)
 {
-	slen += 1; /* Include '\0' */
-	token t = alloc_token(slen, prev);
+	token t;
+	assert(slen < MAX_SIZE); /* TODO: Error handling. */
+	t = alloc_token(prev);
 	if (!t) goto fail_alloc_token;
 	t->type = type;
 	t->size = slen;
-	memcpy(t->value, s, slen);
+	memcpy(t->value, s, slen + 1);
 	assert_valid_token(t);
 	return t;
 
@@ -75,4 +66,10 @@ char* get_value(token t)
 {
 	assert_valid_token(t);
 	return t->value;
+}
+
+size_t token_size()
+{
+	token t;
+	return sizeof *t;
 }

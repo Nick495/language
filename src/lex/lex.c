@@ -25,19 +25,19 @@ struct lexer {
 
 struct lexer* lexer_make(const char* file_name, FILE *in)
 {
-	struct lexer* l = mem_alloc(sizeof *l);
+	struct lexer* l = mem_alloc(sizeof *l + token_size());
 	assert(l); /* TODO: Error handling */
-	memset(l, 0, sizeof *l);
+	memset(l, 0, sizeof *l + token_size());
 	l->file_name = file_name;
 	l->input = in;
 	l->state = lex_start;
+	l->token_cache = *((token*)(l + sizeof *l));
 	return l;
 }
 
 void lexer_free(struct lexer* l)
 {
 	assert(l);
-	token_free(l->token_cache);
 	fclose(l->input);
 	free(l);
 }
@@ -53,6 +53,7 @@ static void append_cstr(struct lexer* l, const char* str)
 	const size_t str_len = strlen(str);
 	assert(l->token_len + str_len < 2047); /* TODO: Error handling. */
 	memcpy(&l->token_str[l->token_len], str, str_len);
+	l->token_len += str_len;
 }
 
 static void emit_token(struct lexer* l, enum token_type type)
@@ -76,13 +77,6 @@ static void emit_token(struct lexer* l, enum token_type type)
 static int next(struct lexer* l)
 {
 	return fgetc(l->input);
-}
-
-static int peek(struct lexer* l)
-{
-	int c = fgetc(l->input);
-	ungetc(c, l->input);
-	return c;
 }
 
 static void backup(struct lexer* l, int c)
