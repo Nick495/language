@@ -60,7 +60,7 @@ Value Eval(ASTNode n)
 	switch(n->type) {
 	case AST_BINOP: {
 		Value left = Eval(n->left), right = Eval(n->right);
-		res = add_values(left, right);
+		res = value_add(left, right);
 		value_free(left);
 		value_free(right);
 		return res;
@@ -141,6 +141,6 @@ ASTNode make_vector(char* val)
 ASTNode extend_vector(ASTNode n, char* val)
 {
 	assert(n->type == AST_VECTOR);
-	n->value = value_extend_vector(n->value, parse_num(val));
+	n->value = value_append(n->value, parse_num(val));
 	return n;
 }

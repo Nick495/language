@@ -1,22 +1,22 @@
 #include "parse.h"
 
-#define BUF_CAP 2 /* Must be > 1 */
+#define LOOKAHEAD 2 /* Must be > 1 */
 struct Parser {
 	size_t buf_read;
 	size_t buf_write;
 	struct lexer *lex;
-	token buf[BUF_CAP];
+	token buf[LOOKAHEAD];
 };
 
 struct Parser *parser_make(FILE* in)
 {
-	struct Parser* p = mem_alloc(sizeof *p + token_size() * BUF_CAP);
+	struct Parser* p = mem_alloc(sizeof *p + token_size() * LOOKAHEAD);
 	assert(p); /* TODO: Error handling. */
 	p->lex = lexer_make("stdin", in);
 	assert(p->lex); /* TODO: Error handling. */
 	p->buf_read = 0;
 	p->buf_write = 0;
-	for (size_t i = 0; i < BUF_CAP; ++i) {
+	for (size_t i = 0; i < LOOKAHEAD; ++i) {
 		p->buf[i] = (token)((char *)p + sizeof *p + token_size() * i);
 	}
 	return p;
@@ -39,14 +39,14 @@ static token token_pop(struct Parser* p)
 {
 	token t = NULL;
 	t = token_copy(t, p->buf[p->buf_read]);
-	p->buf_read = (p->buf_read + 1) % BUF_CAP;
+	p->buf_read = (p->buf_read + 1) % LOOKAHEAD;
 	return t;
 }
 
 static void token_push(struct Parser* p)
 {
 	p->buf[p->buf_write] = lex_token(p->lex, p->buf[p->buf_write]);
-	p->buf_write = (p->buf_write + 1) % BUF_CAP;
+	p->buf_write = (p->buf_write + 1) % LOOKAHEAD;
 }
 
 static token peek(struct Parser *p)
@@ -84,7 +84,7 @@ ASTNode Expr(struct Parser *p, token t)
 		return expr;
 	case TOKEN_OPERATOR: { /* Dyadic (binop) */
 		ASTNode res;
-		token t = next(p); /* FIXME: Send binop token t directly. */
+		token t = next(p);
 		res = make_binop(expr, get_value(t), Expr(p, next(p)));
 		token_free(t);
 		return res;
@@ -106,12 +106,12 @@ ASTNode NumberOrVector(struct Parser *p, token t)
 		return res;
 	}
 	res = make_vector(get_value(t));
+	token_free(t);
 	while (get_type(peek(p)) == TOKEN_NUMBER) {
-		token_free(t);
 		t = next(p);
 		res = extend_vector(res, get_value(t));
+		token_free(t);
 	}
-	token_free(t);
 	return res;
 }
 
@@ -124,28 +124,29 @@ ASTNode NumberOrVector(struct Parser *p, token t)
 //		unop Expr
 ASTNode Op(struct Parser *p, token t)
 {
-	ASTNode expr;
+	ASTNode op;
 	switch(get_type(t)) {
 	case TOKEN_LPAREN:
-		expr = Expr(p, next(p));
+		op = Expr(p, next(p));
 		token_free(t);
 		t = next(p);
 		assert(get_type(t) == TOKEN_RPAREN); /* TODO: Error handling. */
 		token_free(t);
 		break;
 	case TOKEN_NUMBER:
-		expr = NumberOrVector(p, t);
+		op = NumberOrVector(p, t);
 		break;
 	case TOKEN_OPERATOR:
-		expr = make_unop(get_value(t), Expr(p, next(p)));
+		op = make_unop(get_value(t), Expr(p, next(p)));
+		token_free(t);
 		break;
 	default:
 		printf("DEBUG: %s\n", get_value(t));
-		free(t);
+		token_free(t);
 		assert(0); /* TODO: Error handling */
 		return NULL;
 	};
-	return expr; /* TODO: Indexing. */
+	return op; /* TODO: Indexing. */
 }
 
 int parse(FILE *in, FILE *out)
