@@ -21,6 +21,7 @@ typedef struct token_* token;
 /* slen = strlen(s) */
 token token_make(enum token_type type, const char* s, size_t slen, token prev);
 void token_free(token);
+token token_copy(token dst, token src);
 char* get_value(token);
 enum token_type get_type(token);
 size_t token_size();

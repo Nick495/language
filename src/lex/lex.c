@@ -59,6 +59,7 @@ static void emit_token(struct lexer* l, enum token_type type)
 	/* Cache allocated tokens inside the lexer to avoid mem_alloc()s */
 	/* TODO: Remove copy here by refactoring empty_string & token_make? */
 	l->token_type = type;
+	l->token_str[l->token_len] = '\0';
 	l->emitted = 1;
 	return;
 }

@@ -166,3 +166,9 @@ Value add_values(Value a, Value w)
 	}
 	return sum;
 }
+
+Value value_reference(Value v)
+{
+	v->refcount++;
+	return v;
+}

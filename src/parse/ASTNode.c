@@ -9,11 +9,11 @@ struct ASTNode_ {
 			char *dyad;
 			ASTNode right;
 		};
-		Value value; /* Number, vector */
 		struct { /* Unop */
 			char *monad;
 			ASTNode rest;
 		};
+		Value value; /* Number, vector */
 	};
 };
 
@@ -56,29 +56,39 @@ char* Stringify(ASTNode n)
 
 Value Eval(ASTNode n)
 {
+	Value res;
 	switch(n->type) {
-	case AST_BINOP:
-		return add_values(Eval(n->left), Eval(n->right)); /* TODO: Ops */
+	case AST_BINOP: {
+		Value left = Eval(n->left), right = Eval(n->right);
+		res = add_values(left, right);
+		value_free(left);
+		value_free(right);
+		return res;
+	}
 	case AST_UNOP:
-		return Eval(n->rest); /* TODO: Ops */
+		return Eval(n->rest);
 	case AST_NUMBER: /* FALLTHRU */
 	case AST_VECTOR:
-		return n->value;
+		return value_reference(n->value);
 	}
 }
 
 void free_node(ASTNode n)
 {
+	if (!n) {
+		return;
+	}
 	switch(n->type) {
 	case AST_BINOP:
-		free(n->left);
-		free(n->right);
+		free_node(n->left);
+		free_node(n->right);
 		break;
 	case AST_NUMBER: /* FALLTHRU */
 	case AST_VECTOR:
+		value_free(n->value);
 		break;
 	case AST_UNOP:
-		free(n->rest);
+		free_node(n->rest);
 		break;
 	}
 	free(n);

@@ -13,6 +13,7 @@ Value value_make_number(size_t value);
 Value value_make_vector(unsigned long value);
 Value value_extend_vector(Value v, unsigned long val);
 Value add_values(Value a, Value w);
+Value value_reference(Value v);
 void value_free(Value v);
 char* value_stringify(Value v);
 #endif

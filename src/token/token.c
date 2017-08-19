@@ -1,4 +1,5 @@
 #include "token.h"
+#include <stdio.h>
 
 #define MAX_SIZE 2048
 
@@ -54,6 +55,15 @@ token token_make(enum token_type type, const char* s, size_t slen, token prev)
 	token_free(t);
 fail_alloc_token:
 	return NULL;
+}
+
+token token_copy(token dst, token src)
+{
+	assert_valid_token(src);
+	dst = alloc_token(dst);
+	assert_valid_token(dst); /* TODO: Error handling */
+	memcpy(dst, src, sizeof *src);
+	return dst;
 }
 
 enum token_type get_type(token t)

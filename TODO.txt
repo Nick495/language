@@ -2,12 +2,6 @@ Things to do to improve the interpreter.
 
 Make a unified memory allocator that all allocations can pull from.
 	- Fix memory leaks in ASTNode, Eval, Add Values.
-Refactor lexer and/or parser to give a better interface.
-	- Possibly get rid of the string library (do we really need len?)
-		- Possibly set a maximum identifier length? (1024?)
-		- Reducing dynamic allocation is always a win.
-			- Currently the lexer only allocs strings & returned tokens,
-		aside from itself.
 Make a hashtable implementation for environments / symbols.
 	- xxhash is a fast, cryptographically insecure way to do so.
 	- closed hashing, with <50% occupancy is pretty fast.
