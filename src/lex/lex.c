@@ -9,12 +9,15 @@ struct lexer; /* Must forward declare for the sake of typedefs. */
 typedef int (*state_func)(struct lexer *); /* Dummy function pointer. */
 typedef state_func (*state_func_ptr)(struct lexer *);
 
-/* Statefunc prototyes- since they refer to each other, must forward declare */
 static state_func lex_start(struct lexer *);
 
+#define LOOKAHEAD 2
 struct lexer {
 	FILE* input;
 	state_func_ptr state;
+	size_t buf_read;
+	size_t buf_write;
+	int buf[LOOKAHEAD];
 	size_t token_len;
 	enum token_type token_type;
 	int emitted;
@@ -72,12 +75,21 @@ static void cleanup_token_cache(struct lexer* l)
 
 static int next(struct lexer* l)
 {
-	return getc_unlocked(l->input);
+	int res;
+	if (l->buf_write == l->buf_read) {
+		return getc_unlocked(l->input);
+	}
+	res = l->buf[l->buf_read];
+	l->buf_read = (l->buf_read + 1) % LOOKAHEAD;
+	return res;
 }
 
 static void backup(struct lexer* l, int c)
 {
-	ungetc(c, l->input);
+	const size_t next = (l->buf_write + 1) % LOOKAHEAD;
+	assert(next != l->buf_read); /* TODO: Error handling. Full. */
+	l->buf[l->buf_write] = c;
+	l->buf_write = next;
 }
 
 static state_func lex_space(struct lexer* l)
