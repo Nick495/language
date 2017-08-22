@@ -1,7 +1,10 @@
 Things to do to improve the interpreter.
 
-Make a unified memory allocator that all allocations can pull from.
-	- Fix memory leaks in ASTNode, Eval, Add Values.
+Switch lexer / parser to work on char const * inputs.
+	- Add a function to parse a file as a string.
+		- Will have to change the drivers to mmap or stringify the files.
+	- Add a function to parse a line at a time (for REPL).
+		- We can use this function in the web assembly stuff.
 Make a hashtable implementation for environments / symbols.
 	- xxhash is a fast, cryptographically insecure way to do so.
 	- closed hashing, with <50% occupancy is pretty fast.
