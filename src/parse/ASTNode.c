@@ -32,14 +32,18 @@ char* Stringify(ASTNode n)
 	switch(n->type) {
 	case AST_BINOP: {
 		char* left = Stringify(n->left), *right = Stringify(n->right);
-		asprintf(&res, "%s %s %s", left, n->dyad, right);
+		res = malloc(
+			(strlen(left) + strlen(n->dyad) + strlen(right) + 1) * sizeof *res
+		);
+		sprintf(res, "%s %s %s", left, n->dyad, right);
 		free(left);
 		free(right);
 		break;
 	}
 	case AST_UNOP: {
 		char* rest = Stringify(n->rest);
-		asprintf(&res, "%s %s", n->monad, rest);
+		res = malloc((strlen(n->monad) + strlen(rest) + 1) * sizeof *res);
+		sprintf(res, "%s %s", n->monad, rest);
 		free(rest);
 		break;
 	}

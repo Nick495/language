@@ -9,7 +9,7 @@
 typedef struct Value_* Value;
 
 enum value_type { VALUE_NUMBER, VALUE_VECTOR };
-Value value_make_number(size_t value);
+Value value_make_number(unsigned long value);
 Value value_make_vector(unsigned long value);
 Value value_append(Value v, unsigned long val);
 Value value_add(Value a, Value w);

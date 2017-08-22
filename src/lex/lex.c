@@ -77,7 +77,8 @@ static int next(struct lexer* l)
 {
 	int res;
 	if (l->buf_write == l->buf_read) {
-		return getc_unlocked(l->input);
+		/* return getc_unlocked(l->input); */
+		return getc(l->input);
 	}
 	res = l->buf[l->buf_read];
 	l->buf_read = (l->buf_read + 1) % LOOKAHEAD;
