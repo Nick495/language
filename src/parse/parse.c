@@ -6,13 +6,14 @@ struct Parser {
 	size_t buf_write;
 	struct lexer *lex;
 	token buf[LOOKAHEAD];
+	char* input_name;
 };
 
-struct Parser *parser_make(FILE* in)
+struct Parser* parser_make()
 {
 	struct Parser* p = mem_alloc(sizeof *p + token_size() * LOOKAHEAD);
 	assert(p); /* TODO: Error handling. */
-	p->lex = lexer_make("stdin", in);
+	p->lex = lexer_make();
 	assert(p->lex); /* TODO: Error handling. */
 	p->buf_read = 0;
 	p->buf_write = 0;
@@ -22,7 +23,7 @@ struct Parser *parser_make(FILE* in)
 	return p;
 }
 
-void parser_free(struct Parser *p)
+void parser_free(struct Parser* p)
 {
 	if (p) {
 		lexer_free(p->lex);
@@ -149,17 +150,12 @@ ASTNode Op(struct Parser *p, token t)
 	return op; /* TODO: Indexing. */
 }
 
-int parse(FILE *in, FILE *out)
+ASTNode parse(struct Parser* p, char* in, char* in_name)
 {
-	struct Parser *p = parser_make(in);
-	assert(p); /* TODO: Error handling */
-	ASTNode tree = Expr(p, next(p));
-	Value result = Eval(tree);
-	char* res_string = value_stringify(result);
-	fprintf(out, "%s\n", res_string);
-	free(res_string);
-	value_free(result);
-	free_node(tree);
-	parser_free(p);
-	return 0;
+	assert(p);
+	assert(in);
+
+	lexer_init(p->lex, in, in_name);
+	p->input_name = in_name;
+	return Expr(p, next(p));
 }

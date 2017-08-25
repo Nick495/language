@@ -13,25 +13,25 @@ static state_func lex_start(struct lexer *);
 
 #define LOOKAHEAD 2
 struct lexer {
-	FILE* input;
+	char* str;
 	state_func_ptr state;
+#if 0
 	size_t buf_read;
 	size_t buf_write;
-	int buf[LOOKAHEAD];
+	char buf[LOOKAHEAD];
+#endif
 	size_t token_len;
 	enum token_type token_type;
 	int emitted;
-	const char* file_name;
+	const char* in_name;
 	char token_str[2048];
 };
 
-struct lexer* lexer_make(const char* file_name, FILE *in)
+struct lexer* lexer_make()
 {
 	struct lexer* l = mem_alloc(sizeof *l + token_size());
 	assert(l); /* TODO: Error handling */
 	memset(l, 0, sizeof *l + token_size());
-	l->file_name = file_name;
-	l->input = in;
 	l->state = lex_start;
 	return l;
 }
@@ -39,7 +39,6 @@ struct lexer* lexer_make(const char* file_name, FILE *in)
 void lexer_free(struct lexer* l)
 {
 	assert(l);
-	fclose(l->input);
 	free(l);
 }
 
@@ -73,29 +72,34 @@ static void cleanup_token_cache(struct lexer* l)
 	l->emitted = 0;
 }
 
-static int next(struct lexer* l)
+static char next(struct lexer* l)
 {
-	int res;
+	return *(l->str++);
+#if 0
+	char res;
 	if (l->buf_write == l->buf_read) {
-		/* return getc_unlocked(l->input); */
-		return getc(l->input);
+		return *(l->str++);
 	}
 	res = l->buf[l->buf_read];
 	l->buf_read = (l->buf_read + 1) % LOOKAHEAD;
 	return res;
+#endif
 }
 
-static void backup(struct lexer* l, int c)
+static void backup(struct lexer* l, char c)
 {
+	l->str--;
+#if 0
 	const size_t next = (l->buf_write + 1) % LOOKAHEAD;
 	assert(next != l->buf_read); /* TODO: Error handling. Full. */
 	l->buf[l->buf_write] = c;
 	l->buf_write = next;
+#endif
 }
 
 static state_func lex_space(struct lexer* l)
 {
-	int c = next(l);
+	char c = next(l);
 	while (isspace(c)) {
 		c = next(l);
 	}
@@ -105,7 +109,7 @@ static state_func lex_space(struct lexer* l)
 
 static state_func lex_number(struct lexer* l)
 {
-	int c = next(l);
+	char c = next(l);
 	while (isdigit(c)) {
 		append_char(l, c);
 		c = next(l);
@@ -117,7 +121,7 @@ static state_func lex_number(struct lexer* l)
 
 static state_func lex_operator(struct lexer* l)
 {
-	int c = next(l);
+	char c = next(l);
 	if (c != '+') {
 		return NULL; /* TODO: Error handling */
 	}
@@ -128,7 +132,7 @@ static state_func lex_operator(struct lexer* l)
 
 static state_func lex_start(struct lexer* l)
 {
-	int c = next(l);
+	char c = next(l);
 	if (isspace(c)) {
 		backup(l, c);
 		return (state_func)lex_space;
@@ -146,8 +150,8 @@ static state_func lex_start(struct lexer* l)
 		append_char(l, '(');
 		emit_token(l, TOKEN_RPAREN);
 		return (state_func)lex_start;
-	} else if (c == EOF) {
-		append_cstr(l, "End of file");
+	} else if (c == '\0') {
+		append_cstr(l, "End of string");
 		emit_token(l, TOKEN_EOF);
 		return NULL;
 	} else {
@@ -171,4 +175,16 @@ token lex_token(struct lexer* l, token prev)
 	);
 	cleanup_token_cache(l);
 	return t;
+}
+
+void lexer_init(struct lexer* l, char* in, char* in_name)
+{
+	assert(l);
+	l->state = lex_start;
+	l->token_len = l->emitted = 0;
+#if 0
+	l->buf_read = l->buf_write = l->token_len = l->emitted = 0;
+#endif
+	l->str = in;
+	l->in_name = in_name;
 }

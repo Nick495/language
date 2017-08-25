@@ -9,6 +9,6 @@
 #include "lex/lex.h"		/* lexer. */
 #include "ASTNode.h"		/* ASTNode definitions */
 
-struct Parser *parser_make(FILE* in);
-int parse(FILE *in, FILE *out);
+struct Parser* parser_make();
+ASTNode parse(struct Parser *p, char* in, char* in_name);
 void parser_free(struct Parser *p);

@@ -29,9 +29,25 @@ static void print_token(token t, FILE* out)
 int print(FILE* in, FILE *out)
 {
 	token t = NULL;
-	struct lexer* lex = lexer_make("stdin", in); 
+	int c;
+	size_t bufuse = 1;
+	size_t bufsize = 1024;
+	char* buf = malloc(sizeof *buf * bufsize);
+	struct lexer* lex = lexer_make();
+	assert(buf); /* TODO: Error handling. */
 	assert(lex); /* TODO: Error handling. */
+	while ((c = getchar_unlocked()) != EOF) {
+		buf[bufuse++] = (char) c;
+		if (bufuse == bufsize) {
+			bufsize *= 2;
+			buf = realloc(buf, bufsize);
+			assert(buf); /* TODO: Error handling. */
+		}
+	}
+	buf[bufuse + 1] = '\0'; /* Guarenteed to work by mathematical relationship. */
+	assert(strlen(buf) == bufuse);
 
+	lexer_init(lex, buf, "stdin");
 	for (t =lex_token(lex, t); get_type(t) != TOKEN_EOF; t =lex_token(lex, t)) {
 		print_token(t, out);
 	}

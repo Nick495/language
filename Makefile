@@ -17,9 +17,6 @@ parse: $(SRC)/drivers/parse.c lex.o parse.o token.o value.o ASTNode.o mem.o
 	clang $(CFLAGS) -o $(BIN)/parse $(SRC)/drivers/parse.c \
 		$(OBJ)/lex.o $(OBJ)/parse.o $(OBJ)/token.o \
 		$(OBJ)/value.o $(OBJ)/ASTNode.o $(OBJ)/mem.o
-	emcc -s WASM=1 $(CFLAGS) -o $(WSM)/parse.html $(SRC)/drivers/parse.c \
-		$(WEBOBJ)/lex.o $(WEBOBJ)/parse.o $(WEBOBJ)/token.o \
-		$(WEBOBJ)/value.o $(WEBOBJ)/ASTNode.o $(WEBOBJ)/mem.o
 
 print_tokens: $(SRC)/drivers/print_tokens.c \
 		lex.o print.o token.o mem.o
@@ -36,7 +33,6 @@ lex.o: $(SRC)/lex/lex.c $(SRC)/token/token.h
 
 print.o: $(SRC)/parse/print.c $(SRC)/token/token.h
 	clang -c $(CFLAGS) -o $(OBJ)/print.o $(SRC)/parse/print.c
-	emcc -c $(CFLAGS) -o $(WEBOBJ)/print.o $(SRC)/parse/print.c
 
 parse.o: $(SRC)/parse/parse.c $(SRC)/token/token.h
 	clang -c $(CFLAGS) -o $(OBJ)/parse.o $(SRC)/parse/parse.c
