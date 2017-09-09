@@ -1,33 +1,61 @@
 #include <stdio.h>          /* FILE*, getc() */
 #include <stdlib.h>			/* malloc(), realloc() */
 #include "../parse/parse.h"	/* Parses tokens. */
-#include "../parse/ASTNode.h" /* node_free() */
+#include "../ASTNode/ASTNode.h" /* node_free() */
+
+struct darray {
+	size_t use;
+	size_t cap;
+	char *str;
+};
+
+struct darray make_darray(void)
+{
+	struct darray tmp;
+	tmp.use = 0;
+	tmp.cap = 1024;
+	tmp.str = malloc(sizeof *tmp.str * tmp.cap);
+	assert(tmp.str); /* TODO: Error handling. */
+	return tmp;
+}
+void darray_push(struct darray *d, char c)
+{
+	d->str[d->use++] = c;
+	if (d->use == d->cap) {
+		d->cap *= 2;
+		d->str = realloc(d->str, d->cap);
+		assert(d->str); /* TODO: Error handling. */
+	}
+}
+void darray_free(struct darray* d)
+{
+	free(d->str);
+}
 
 int main(void)
 {
 	int c;
-	size_t bufuse = 1;
-	size_t bufsize = 1024;
-	char* buf = malloc(sizeof *buf * bufsize);
 	struct Parser* p = parser_make();
-	ASTNode tree;
-	Value val;
-	assert(buf); /* TODO: Error handling. */
-	while ((c = getchar_unlocked()) != EOF) {
-		buf[bufuse++ - 1] = (char) c;
-		if (bufuse == bufsize) {
-			bufsize *= 2;
-			buf = realloc(buf, bufsize);
-			assert(buf); /* TODO: Error handling. */
-		}
-	}
-	buf[bufuse] = '\0';
-	assert(strlen(buf) == bufuse - 1);
+	struct darray buffer = make_darray();
+	char *res;
+	ASTNode tree = NULL;
+	Value val = NULL;
+	assert(p);
 
-	tree = parse(p, buf, "stdin");
+	while ((c = getchar_unlocked()) != EOF) {
+		darray_push(&buffer, c);
+	}
+	darray_push(&buffer, '\0');
+	assert(strlen(buffer.str) == buffer.use - 1);
+
+	tree = parse(p, buffer.str, "stdin");
 	val = Eval(tree);
-	free_node(tree);
-	printf("%s\n", value_stringify(val));
+	res = value_stringify(val);
+	printf("%s\n", res);
+
+	free(res);
 	value_free(val);
-	free(buf);
+	free_node(tree);
+	darray_free(&buffer);
+	parser_free(p);
 }

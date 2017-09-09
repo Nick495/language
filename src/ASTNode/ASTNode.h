@@ -21,4 +21,6 @@ ASTNode make_unop(char *monad, ASTNode right);
 ASTNode make_number(char* val);
 ASTNode make_vector(char* val);
 ASTNode extend_vector(ASTNode vec, char* val);
+ASTNode make_statement(ASTNode e);
+ASTNode extend_statement(ASTNode s, ASTNode e);
 #endif

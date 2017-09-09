@@ -1,4 +1,7 @@
-#include "print.h"
+#include <stdio.h>          /* FILE*, getc() */
+#include <errno.h>			/* errno, strerror() */
+#include "token/token.h"	/* token, token_Free(), get_type() */
+#include "lex/lex.h"		/* lexer_make(), lexer_init(), lex_token() */
 
 static void print_token(token t, FILE* out)
 {
@@ -22,16 +25,25 @@ static void print_token(token t, FILE* out)
 	case TOKEN_RPAREN:
 		name = "Close parenthesis";
 		break;
+	case TOKEN_SEMICOLON:
+		name = "Semicolon";
+		break;
+	case TOKEN_IDENTIFIER:
+		name = "Identifier";
+		break;
+	case TOKEN_LET:
+		name = "Let";
+		break;
 	};
 	fprintf(out, "Found %s : %s\n", name, get_value(t));
 }
 
-int print(FILE* in, FILE *out)
+int main(void)
 {
 	token t = NULL;
 	int c;
-	size_t bufuse = 1;
-	size_t bufsize = 1024;
+	size_t bufuse = 0;
+	size_t bufsize = 1000024;
 	char* buf = malloc(sizeof *buf * bufsize);
 	struct lexer* lex = lexer_make();
 	assert(buf); /* TODO: Error handling. */
@@ -49,15 +61,15 @@ int print(FILE* in, FILE *out)
 
 	lexer_init(lex, buf, "stdin");
 	for (t =lex_token(lex, t); get_type(t) != TOKEN_EOF; t =lex_token(lex, t)) {
-		print_token(t, out);
+		print_token(t, stdout);
 	}
 	token_free(t);
-	if (fclose(in)) {
+	if (fclose(stdin)) {
 		fprintf(stderr, "error in: %s\n", strerror(errno));
-		fclose(out);
+		fclose(stdout);
 		return errno;
 	}
-	if (fclose(out)) {
+	if (fclose(stdout)) {
 		fprintf(stderr, "error out: %s\n", strerror(errno));
 		return errno;
 	}

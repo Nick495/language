@@ -1,7 +1,5 @@
 #include "lex.h"
 
-struct lexer; /* Must forward declare for the sake of typedefs. */
-
 /*
  * Unfortunately, there are no recursive typedefs in C, so we use a dummy.
  * Source: comp.lang.c FAQ 1.22 (http://www.c-faq.com/decl/recurfuncp.html)
@@ -11,15 +9,10 @@ typedef state_func (*state_func_ptr)(struct lexer *);
 
 static state_func lex_start(struct lexer *);
 
-#define LOOKAHEAD 2
+/* Max token length is 2048 characters */
 struct lexer {
 	char* str;
 	state_func_ptr state;
-#if 0
-	size_t buf_read;
-	size_t buf_write;
-	char buf[LOOKAHEAD];
-#endif
 	size_t token_len;
 	enum token_type token_type;
 	int emitted;
@@ -56,12 +49,21 @@ static void append_cstr(struct lexer* l, const char* str)
 	l->token_len += str_len;
 }
 
+/*
+ * Turns the token_str into a legitimate c string by adding a null character.
+ * Factoring this out saves one write per append_char or append_cstr.
+*/
+static void fixup_token(struct lexer* l)
+{
+	l->token_str[l->token_len] = '\0';
+}
+
 static void emit_token(struct lexer* l, enum token_type type)
 {
 	/* Cache allocated tokens inside the lexer to avoid mem_alloc()s */
 	/* TODO: Remove copy here by refactoring empty_string & token_make? */
 	l->token_type = type;
-	l->token_str[l->token_len] = '\0';
+	fixup_token(l);
 	l->emitted = 1;
 	return;
 }
@@ -75,26 +77,11 @@ static void cleanup_token_cache(struct lexer* l)
 static char next(struct lexer* l)
 {
 	return *(l->str++);
-#if 0
-	char res;
-	if (l->buf_write == l->buf_read) {
-		return *(l->str++);
-	}
-	res = l->buf[l->buf_read];
-	l->buf_read = (l->buf_read + 1) % LOOKAHEAD;
-	return res;
-#endif
 }
 
 static void backup(struct lexer* l, char c)
 {
 	l->str--;
-#if 0
-	const size_t next = (l->buf_write + 1) % LOOKAHEAD;
-	assert(next != l->buf_read); /* TODO: Error handling. Full. */
-	l->buf[l->buf_write] = c;
-	l->buf_write = next;
-#endif
 }
 
 static state_func lex_space(struct lexer* l)
@@ -119,14 +106,22 @@ static state_func lex_number(struct lexer* l)
 	return (state_func)lex_start;
 }
 
-static state_func lex_operator(struct lexer* l)
+static state_func lex_identifier(struct lexer* l)
 {
 	char c = next(l);
-	if (c != '+') {
-		return NULL; /* TODO: Error handling */
+	while (!isspace(c)) {
+		append_char(l, c);
+		c = next(l);
 	}
-	append_char(l, c);
-	emit_token(l, TOKEN_OPERATOR);
+	/* No backup. Consume the space. */
+	fixup_token(l);
+	if (!strcmp(l->token_str, "let")) { /* Found let */
+		emit_token(l, TOKEN_LET);
+	} else if (!strcmp(l->token_str, "+")) {
+		emit_token(l, TOKEN_OPERATOR);
+	} else {
+		emit_token(l, TOKEN_IDENTIFIER);
+	}
 	return (state_func)lex_start;
 }
 
@@ -139,9 +134,6 @@ static state_func lex_start(struct lexer* l)
 	} else if (isdigit(c)) {
 		backup(l, c);
 		return (state_func)lex_number;
-	} else if (c == '+') {
-		backup(l, c);
-		return (state_func)lex_operator;
 	} else if (c == '(') {
 		append_char(l, '(');
 		emit_token(l, TOKEN_LPAREN);
@@ -150,13 +142,17 @@ static state_func lex_start(struct lexer* l)
 		append_char(l, '(');
 		emit_token(l, TOKEN_RPAREN);
 		return (state_func)lex_start;
+	} else if (c == ';') {
+		append_char(l, ';');
+		emit_token(l, TOKEN_SEMICOLON);
+		return (state_func)lex_start;
 	} else if (c == '\0') {
 		append_cstr(l, "End of string");
 		emit_token(l, TOKEN_EOF);
 		return NULL;
-	} else {
-		fprintf(stderr, "Error. Bad character: %c\n", c);
-		return NULL; /* TODO: Error handling */
+	} else { /* Has to be an identifier */
+		backup(l, c);
+		return (state_func)lex_identifier;
 	}
 }
 
@@ -182,9 +178,6 @@ void lexer_init(struct lexer* l, char* in, char* in_name)
 	assert(l);
 	l->state = lex_start;
 	l->token_len = l->emitted = 0;
-#if 0
-	l->buf_read = l->buf_write = l->token_len = l->emitted = 0;
-#endif
 	l->str = in;
 	l->in_name = in_name;
 }

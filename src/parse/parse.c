@@ -1,5 +1,6 @@
 #include "parse.h"
 
+/* We can guarentee with the grammar that the parser never exceeds lookahead. */
 #define LOOKAHEAD 2 /* Must be > 1 */
 struct Parser {
 	size_t buf_read;
@@ -80,9 +81,6 @@ ASTNode Expr(struct Parser *p, token t)
 {
 	ASTNode expr = Op(p, t);
 	switch (get_type(peek(p))) {
-	case TOKEN_EOF: /* FALLTHRU */
-	case TOKEN_RPAREN:
-		return expr;
 	case TOKEN_OPERATOR: { /* Dyadic (binop) */
 		ASTNode res;
 		token t = next(p);
@@ -91,9 +89,7 @@ ASTNode Expr(struct Parser *p, token t)
 		return res;
 	}
 	default:
-		printf("DEBUG: %s\n", get_value(peek(p)));
-		assert(0); /* TODO: Error handling */
-		return NULL;
+		return expr;
 	}
 }
 
@@ -119,7 +115,7 @@ ASTNode NumberOrVector(struct Parser *p, token t)
 // Grammar from Rob Pike's talk
 //	operand
 //		( Expr )
-//		( Expr ) [ Expr ]...
+//		( Expr ) [ Expr ]... TODO
 //		operand
 //		number
 //		unop Expr
@@ -141,13 +137,40 @@ ASTNode Op(struct Parser *p, token t)
 		op = make_unop(get_value(t), Expr(p, next(p)));
 		token_free(t);
 		break;
+	case TOKEN_EOF:
+		printf("Extraneous ';'\n");
+		token_free(t);
+		assert(0);
+		return NULL;
 	default:
-		printf("DEBUG: %s\n", get_value(t));
+		printf("Unexpected token: %s\n", get_value(t));
 		token_free(t);
 		assert(0); /* TODO: Error handling */
 		return NULL;
 	};
 	return op; /* TODO: Indexing. */
+}
+
+//	statement
+//		Expr
+//		Expr ; Expr...
+ASTNode Statement(struct Parser *p, token t)
+{
+	ASTNode exp = Expr(p, t), res;
+	if (get_type(peek(p)) != TOKEN_SEMICOLON) {
+		return exp;
+	}
+	res = make_statement(exp);
+	while (get_type(peek(p)) == TOKEN_SEMICOLON) {
+		token_free(next(p));
+		exp = Expr(p, next(p));
+		res = extend_statement(res, exp);
+	}
+	if (get_type(peek(p)) != TOKEN_EOF) {
+		fprintf(stderr, "Unexpected token: %s\n", get_value(peek(p)));
+		assert(0);
+	}
+	return res;
 }
 
 ASTNode parse(struct Parser* p, char* in, char* in_name)
@@ -157,5 +180,5 @@ ASTNode parse(struct Parser* p, char* in, char* in_name)
 
 	lexer_init(p->lex, in, in_name);
 	p->input_name = in_name;
-	return Expr(p, next(p));
+	return Statement(p, next(p));
 }

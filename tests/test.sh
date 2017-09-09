@@ -3,7 +3,7 @@
 test_string()
 {
 	STRING="$1"
-	echo "==> Testing $STRING"
+	echo "==> Testing $STRING == $2"
 	TOKENS_OUTPUT=$(echo $STRING | ./print_tokens)
 	PARSE_OUTPUT=$(echo $STRING | ./parse)
 
@@ -22,3 +22,5 @@ test_string "( 1 + 2 + 3 + 4 )"	"10"
 test_string "2 2 + 2 2" "4 4"
 test_string "1 2 3 + 4 5 6" "5 7 9"
 test_string "1 2 3 4 5 + 1 2 3 4" "Error: mismatched shapes."
+test_string "1 + 2; 3 + 4; 5 + 7; 12 + 9" "21"
+test_string "let x := 1 + 2;" "3"
