@@ -1,8 +1,9 @@
 SHELL = /bin/sh
 
-CFLAGS = -O2 -g -Wall -Wextra -pedantic -std=c11 -I src
+CFLAGS = -O2 -g -Wall -Wextra -pedantic -std=c11 -I src -I lib/headers
 
 BIN = ./bin
+LIBOBJ = ./lib/obj/
 OBJ = ./obj
 WEBOBJ= ./webobj
 SRC = ./src
@@ -14,15 +15,18 @@ directories:
 	mkdir -p $(BIN) $(OBJ) $(WEBOBJ) $(WSM) $(LIB) $(LIBOBJ)
 
 parse: $(SRC)/drivers/parse.c \
-		lex.o parse.o token.o value.o ASTNode.o mem.o
+		lex.o parse.o token.o value.o ASTNode.o mem.o symtable.o
 	clang $(CFLAGS) -o $(BIN)/parse $(SRC)/drivers/parse.c \
 		$(OBJ)/lex.o $(OBJ)/parse.o $(OBJ)/token.o \
-		$(OBJ)/value.o $(OBJ)/ASTNode.o $(OBJ)/mem.o \
+		$(OBJ)/value.o $(OBJ)/ASTNode.o $(OBJ)/mem.o $(OBJ)/symtable.o \
+		$(LIBOBJ)/xxhash.o
 
 print: $(SRC)/drivers/print.c \
 		lex.o print.o token.o mem.o
 	clang $(CFLAGS) -o $(BIN)/print_tokens $(SRC)/drivers/print.c \
-		$(OBJ)/lex.o $(OBJ)/print.o $(OBJ)/token.o $(OBJ)/mem.o \
+		$(OBJ)/lex.o $(OBJ)/print.o $(OBJ)/token.o \
+		$(OBJ)/mem.o $(OBJ)/symtable.o \
+		$(LIBOBJ)/xxhash.o
 
 clean:
 	rm -rf $(OBJ) $(BIN)
@@ -53,3 +57,7 @@ ASTNode.o: $(SRC)/ASTNode/ASTNode.c $(SRC)/ASTNode/ASTNode.h
 mem.o: $(SRC)/mem/mem.c $(SRC)/mem/mem.h
 	clang -c $(CFLAGS) -o $(OBJ)/mem.o $(SRC)/mem/mem.c
 	emcc -c $(CFLAGS) -o $(WEBOBJ)/mem.o $(SRC)/mem/mem.c
+
+symtable.o: $(SRC)/symtable/symtable.c $(SRC)/symtable/symtable.h
+	clang -c $(CFLAGS) -o $(OBJ)/symtable.o $(SRC)/symtable/symtable.c
+	emcc -c $(CFLAGS) -o $(WEBOBJ)/symtable.o $(SRC)/symtable/symtable.c

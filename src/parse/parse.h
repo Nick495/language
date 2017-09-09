@@ -7,6 +7,7 @@
 #include "token/token.h"	/* Tokens from lexer. (token) */
 #include "value/value.h"	/* Value types */
 #include "lex/lex.h"		/* lexer. */
+#include "symtable/symtable.h" /* Symbol table */
 #include "ASTNode/ASTNode.h"/* ASTNode definitions */
 
 struct Parser* parser_make();

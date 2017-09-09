@@ -7,6 +7,7 @@ struct Parser {
 	size_t buf_write;
 	struct lexer *lex;
 	token buf[LOOKAHEAD];
+	struct symtable *symbols;
 	char* input_name;
 };
 
@@ -16,6 +17,8 @@ struct Parser* parser_make()
 	assert(p); /* TODO: Error handling. */
 	p->lex = lexer_make();
 	assert(p->lex); /* TODO: Error handling. */
+	p->symbols = symtable_make();
+	assert(p->symbols);
 	p->buf_read = 0;
 	p->buf_write = 0;
 	for (size_t i = 0; i < LOOKAHEAD; ++i) {
@@ -28,6 +31,7 @@ void parser_free(struct Parser* p)
 {
 	if (p) {
 		lexer_free(p->lex);
+		symtable_free(p->symbols);
 	}
 	free(p);
 }
