@@ -15,14 +15,14 @@ enum RUNE_SIZE { RUNE_SIZE = 4 };
 
 struct lexer {
 	char* str;
-	unsigned int width;
 	state_func_ptr state;
 	char* cur;
 	char* pos;
 	int emitted;
+	int inject_semi;
 	enum token_type token_type;
 	size_t token_len;
-	const char* in_name;
+	const char* in_name; /* End of cache line. */
 	char token_str[MAX_TOKEN_LEN * RUNE_SIZE];
 };
 
@@ -78,64 +78,37 @@ static void emit_token(struct lexer* l, enum token_type type)
 	return;
 }
 
-/* Cheeky function needed since the EOS token is a null terminator itself. */
-static void emit_eos(struct lexer *l, enum token_type type)
-{
-	l->cur = l->pos;
-	emit_token(l, type);
-}
-
 static void erase_lexemes(struct lexer *l)
 {
 	l->cur = l->pos;
 }
 
-static unsigned int codepoint_size(unsigned char c)
-{
-	unsigned int size;
-	if ((c & 0x80) == 0x00) {
-		size = 1;
-	} else if ((c & 0xE0) == 0xC0) {
-		size = 2;
-	} else if ((c & 0xF0) == 0xE0) {
-		size = 3;
-	} else if ((c & 0xF8) == 0xF0) {
-		size = 4;
-	} else { /* Unknown unicode character encountered. */
-		assert(0);
-	}
-	return size;
-}
-
-static void verify_utf8(unsigned char *codepoint, unsigned int size)
-{
-	unsigned int i;
-	for (i = 1; i < size; ++i) {
-		assert(((unsigned char) codepoint[i] & 0xC0) == 0x80);
-	}
-}
-
-static char next(struct lexer* l)
+static char next(struct lexer *l)
 {
 	char c = *l->pos;
-	l->width = codepoint_size(c);
-	verify_utf8((unsigned char *)l->pos, l->width);
-	l->pos += l->width;
-	/* We need one character for the null terminator. */
-	assert((l->pos - l->cur) < (MAX_TOKEN_LEN - 1) * RUNE_SIZE);
+	l->pos += 1;
 	return c;
 }
 
 static void backup(struct lexer* l)
 {
-	l->pos -= l->width;
-	l->width = 0;
+	l->pos--;
+}
+
+static void inject_semicolon(struct lexer *l)
+{
+	erase_lexemes(l);
+	emit_token(l, TOKEN_SEMICOLON);
+	l->inject_semi = 0;
 }
 
 static state_func lex_space(struct lexer* l)
 {
 	char c = next(l);
 	while (isspace(c)) {
+		if (c == '\n' && l->inject_semi) {
+			inject_semicolon(l);
+		}
 		c = next(l);
 	}
 	backup(l);
@@ -151,24 +124,39 @@ static state_func lex_number(struct lexer* l)
 	}
 	backup(l);
 	emit_token(l, TOKEN_NUMBER);
+	l->inject_semi = 1;
 	return (state_func)lex_start;
 }
 
+struct keyword {
+	const char* name;
+	size_t length;
+	enum token_type token_type;
+};
+static struct keyword keywords[] = {
+	{ "let", 3, TOKEN_LET },
+	{ ":=", 2, TOKEN_ASSIGNMENT },
+	{ "+", 1, TOKEN_OPERATOR },
+	{ NULL, 0, TOKEN_EOF }
+};
 static state_func lex_identifier(struct lexer* l)
 {
 	char c = next(l);
+	enum token_type type = TOKEN_IDENTIFIER;
 	while (!isspace(c)) {
 		c = next(l);
 	}
 	backup(l);
-	/* TODO: Find a better way to deal with keywords. */
-	if (!memcmp(l->cur, "let", sizeof "let")) { /* Found let */
-		emit_token(l, TOKEN_LET);
-	} else if (memcmp(l->cur, "+", sizeof "+")) {
-		emit_token(l, TOKEN_OPERATOR);
-	} else {
-		emit_token(l, TOKEN_IDENTIFIER);
+
+	for (struct keyword* k = keywords; k->name != NULL; ++k) {
+		if ((size_t)(l->pos - l->cur) == k->length &&
+				!memcmp(l->cur, k->name, k->length)) {
+			type = k->token_type;
+			break;
+		}
 	}
+	emit_token(l, type);
+	l->inject_semi = 1;
 	return (state_func)lex_start;
 }
 
@@ -181,19 +169,25 @@ static state_func lex_start(struct lexer* l)
 	} else if (isdigit(c)) {
 		backup(l);
 		return (state_func)lex_number;
-	} else if (c == '(') {
+	}
+	switch(c) {
+	case '(':
 		emit_token(l, TOKEN_LPAREN);
 		return (state_func)lex_start;
-	} else if (c == ')') {
+	case ')':
 		emit_token(l, TOKEN_RPAREN);
 		return (state_func)lex_start;
-	} else if (c == ';') {
+	case ';':
 		emit_token(l, TOKEN_SEMICOLON);
 		return (state_func)lex_start;
-	} else if (c == '\0') {
-		emit_eos(l, TOKEN_EOF);
+	case '\0':
+		if (c == '\n' && l->inject_semi) {
+			inject_semicolon(l);
+		}
+		l->cur = l->pos; /* Don't duplicate null terminators. */
+		emit_token(l, TOKEN_EOF);
 		return NULL;
-	} else { /* Has to be an identifier */
+	default:
 		backup(l);
 		return (state_func)lex_identifier;
 	}
