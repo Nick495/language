@@ -25,22 +25,27 @@ struct symtable* symtable_make()
 	return s;
 }
 
+static struct entry next(struct symtable* s, size_t* hash)
+{
+	*hash = *hash + 1; /* Linear probing. */
+	return s->entries[*hash % s->cap];
+}
+
 /* Inserts an entry with linear probing. */
-static size_t insert_entry(struct symtable *s, char* key, Value v)
+static size_t insert_entry(struct symtable* s, const char* key, Value v)
 {
 	size_t hash = XXH64(key, strlen(key), s->seed);
 	struct entry e = s->entries[hash % s->cap];
 	while (e.status != EMPTY) {
-		hash++; /* Linear probing. */
-		e = s->entries[hash % s->cap];
+		e = next(s, &hash);
 	}
-	e.key = key;
+	e.key = (char *) key;
 	e.value = v;
 	return hash;
 }
 
 /* Double symtable's size. */
-static void symtable_expand(struct symtable *s)
+static void symtable_expand(struct symtable* s)
 {
 	struct entry* old_entries = s->entries;
 	size_t i, old_cap = s->cap;
@@ -56,12 +61,26 @@ static void symtable_expand(struct symtable *s)
 	mem_dealloc(old_entries);
 }
 
-size_t symtable_push(struct symtable* s, char* key, Value v)
+size_t symtable_push(struct symtable* s, const char* key, Value v)
 {
 	if (s->use >= (s->cap * 3) / 4) {
 		symtable_expand(s);
 	}
 	return insert_entry(s, key, v);
+}
+
+Value symtable_find(struct symtable* s, const char* key)
+{
+	size_t hash = XXH64(key, strlen(key), s->seed);
+	struct entry e = s->entries[hash % s->cap];
+	while (e.status == SET && memcmp(e.key, key, strlen(key))) {
+		e = next(s, &hash);
+	}
+	if (e.status == SET) {
+		return e.value;
+	} else {
+		return NULL;
+	}
 }
 
 void symtable_free(struct symtable* s)

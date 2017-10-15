@@ -7,5 +7,6 @@
 struct symtable;
 
 struct symtable* symtable_make();
-size_t symtable_push(struct symtable* s, char* key, Value v);
 void symtable_free(struct symtable* s);
+size_t symtable_push(struct symtable* s, const char* key, Value v);
+Value symtable_find(struct symtable* s, const char* key);

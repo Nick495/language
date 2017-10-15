@@ -1,7 +1,10 @@
 #include "ASTNode.h"
 
 struct ASTNode_ {
-	enum { AST_BINOP, AST_UNOP, AST_NUMBER, AST_VECTOR, AST_STATEMENT } type;
+	enum {
+		AST_BINOP, AST_UNOP, AST_NUMBER, AST_VECTOR,
+		AST_ASSIGNMENT, AST_STATEMENT_LIST
+	} type;
 	union {
 		struct { /* Binop */
 			ASTNode left;
@@ -13,7 +16,11 @@ struct ASTNode_ {
 			ASTNode rest;
 		};
 		Value value; /* Number, vector */
-		struct { /* statement */
+		struct {
+			ASTNode lvalue;
+			ASTNode rvalue;
+		};
+		struct { /* Statement list */
 			size_t use;
 			size_t cap;
 			ASTNode* siblings;
@@ -58,7 +65,7 @@ char* Stringify(ASTNode n)
 	case AST_VECTOR:
 		res = value_stringify(n->value);
 		break;
-	case AST_STATEMENT: {
+	case AST_STATEMENT_LIST: {
 		char** strs = mem_alloc(sizeof *strs * n->use); /* TODO: Error h */
 		size_t i, total_len = 0;
 		assert(strs);
@@ -85,6 +92,16 @@ char* Stringify(ASTNode n)
 		mem_dealloc(strs);
 		break;
 	}
+	case AST_ASSIGNMENT: {
+		char *lv = Stringify(n->lvalue), *rv = Stringify(n->rvalue);
+		size_t lvlen = strlen(lv), rvlen = strlen(rv), slen = strlen("> := <");
+		res = malloc(1 + lvlen + slen + rvlen + 1 + 1);
+		assert(res); /* TODO: Error handling. */
+		sprintf(res, "<%s> := <%s>", lv, rv);
+		free(lv);
+		free(rv);
+		break;
+	}
 	default:
 		return NULL;
 	}
@@ -105,12 +122,16 @@ Value Eval(ASTNode n)
 	}
 	case AST_UNOP:
 		return Eval(n->rest);
+	case AST_ASSIGNMENT:
+		return Eval(n->rvalue);
 	case AST_NUMBER: /* FALLTHRU */
 	case AST_VECTOR:
 		return value_reference(n->value);
-	case AST_STATEMENT:
+	case AST_STATEMENT_LIST:
 		return Eval(n->siblings[n->use - 1]);
 	}
+	assert(0);
+	return NULL;
 }
 
 void free_node(ASTNode n)
@@ -130,7 +151,11 @@ void free_node(ASTNode n)
 	case AST_UNOP:
 		free_node(n->rest);
 		break;
-	case AST_STATEMENT: {
+	case AST_ASSIGNMENT:
+		free_node(n->lvalue);
+		free_node(n->rvalue);
+		break;
+	case AST_STATEMENT_LIST: {
 		size_t i = 0;
 		for (i = 0; i < n->use; ++i) {
 			free_node(n->siblings[i]);
@@ -164,60 +189,72 @@ ASTNode make_unop(char* monad, ASTNode right)
 }
 
 /* TODO: Floating point, other primitive types. */
+/* TODO: Should this be in the parser instead? */
 static unsigned long parse_num(char* text)
 {
 	return strtol(text, NULL, 10);
 }
 
-ASTNode make_number(char* val)
+ASTNode make_single(char* val, enum type type)
 {
 	ASTNode n = make_node();
+	struct value_atom atom = { type, { parse_num(val) } };
 	assert(n); /* TODO: Error handling */
 	n->type = AST_NUMBER;
-	n->value = value_make_number(parse_num(val));
+	n->value = value_make_single(atom);
 	return n;
 }
 
-ASTNode make_vector(char* val)
+ASTNode make_vector(char* val, enum type type)
 {
 	ASTNode n = make_node();
+	struct value_atom atom = { type, { parse_num(val) } };
 	assert(n); /* TODO: Error handling */
 	n->type = AST_VECTOR;
-	n->value = value_make_vector(parse_num(val));
+	n->value = value_make_vector(atom);
 	return n;
 }
 
-ASTNode extend_vector(ASTNode n, char* val)
+ASTNode extend_vector(ASTNode vec, char* val, enum type type)
 {
-	assert(n->type == AST_VECTOR);
-	/* TODO: Allow for other types. */
-	n->value = value_append(n->value, parse_num(val));
-	return n;
+	struct value_atom atom = { type, { parse_num(val) } };
+	assert(vec->type == AST_VECTOR);
+	vec->value = value_append(vec->value, atom);
+	return vec;
 }
 
-ASTNode make_statement(ASTNode e)
+ASTNode make_assignment(ASTNode lvalue, ASTNode rvalue)
 {
 	ASTNode n = make_node();
 	assert(n); /* TODO: Error handling */
-	n->type = AST_STATEMENT;
+	n->type = AST_ASSIGNMENT;
+	n->lvalue = lvalue;
+	n->rvalue = rvalue;
+	return n;
+}
+
+ASTNode make_statement_list()
+{
+	ASTNode n = make_node();
+	assert(n); /* TODO: Error handling */
+	n->type = AST_STATEMENT_LIST;
 	n->use = 0;
 	n->cap = 10;
 	n->siblings = mem_alloc(sizeof *n->siblings * n->cap);
 	assert(n->siblings); /* TODO: Error handling. */
-	n->siblings[n->use++] = e;
 	return n;
 }
 
-ASTNode extend_statement(ASTNode s, ASTNode e)
+ASTNode extend_statement_list(ASTNode list, ASTNode stmt)
 {
-	s->siblings[s->use++] = e;
-	if (s->use == s->cap) {
+	list->siblings[list->use++] = stmt;
+	if (list->use == list->cap) {
 		ASTNode* new = NULL;
-		new = mem_realloc(s->siblings, sizeof *new * s->cap * 2);
+		new = mem_realloc(list->siblings, sizeof *new * list->cap * 2);
 		assert(new); /* TODO: Error handling. */
-		mem_dealloc(s->siblings);
-		s->cap *= 2;
-		s->siblings = new;
+		mem_dealloc(list->siblings);
+		list->cap *= 2;
+		list->siblings = new;
 	}
-	return s;
+	return list;
 }

@@ -1,13 +1,16 @@
 #include "parse.h"
 
-/* We can guarentee with the grammar that the parser never exceeds lookahead. */
+/* We can guarentee with grammar that the parser never exceeds lookahead. */
 #define LOOKAHEAD 2 /* Must be > 1 */
 struct Parser {
 	size_t buf_read;
 	size_t buf_write;
-	struct lexer *lex;
+	struct lexer* lex;
 	token buf[LOOKAHEAD];
-	struct symtable *symbols;
+	struct symtable_list {
+		struct symtable* symbols;
+		struct symtable_list* up;
+	} environment;
 	char* input_name;
 };
 
@@ -17,8 +20,9 @@ struct Parser* parser_make()
 	assert(p); /* TODO: Error handling. */
 	p->lex = lexer_make();
 	assert(p->lex); /* TODO: Error handling. */
-	p->symbols = symtable_make();
-	assert(p->symbols);
+	p->environment.symbols = symtable_make();
+	p->environment.up = NULL;
+	assert(p->environment.symbols);
 	p->buf_read = 0;
 	p->buf_write = 0;
 	for (size_t i = 0; i < LOOKAHEAD; ++i) {
@@ -31,7 +35,10 @@ void parser_free(struct Parser* p)
 {
 	if (p) {
 		lexer_free(p->lex);
-		symtable_free(p->symbols);
+		while (p->environment.up) {
+			symtable_free(p->environment.symbols);
+			p->environment = *p->environment.up;
+		}
 	}
 	free(p);
 }
@@ -55,7 +62,7 @@ static void token_push(struct Parser* p)
 	p->buf_write = (p->buf_write + 1) % LOOKAHEAD;
 }
 
-static token peek(struct Parser *p)
+static token peek(struct Parser* p)
 {
 	if (is_empty(p)) {
 		token_push(p);
@@ -63,7 +70,7 @@ static token peek(struct Parser *p)
 	return p->buf[p->buf_read];
 }
 
-static token next(struct Parser *p)
+static token next(struct Parser* p)
 {
 	token t = NULL;
 	if (is_empty(p)) {
@@ -75,13 +82,32 @@ static token next(struct Parser *p)
 	return t;
 }
 
+static void assign(struct Parser* p, const char* name, Value value)
+{
+	symtable_push(p->environment.symbols, name, value);
+}
+
+static enum type token_to_value_type(enum token_type token_type)
+{
+	switch (token_type) {
+	case TOKEN_NUMBER:
+		return INTEGER;
+	case TOKEN_IDENTIFIER:
+		return SYMBOL;
+	default:
+		fprintf(stderr, "Expected type invalid.\n");
+		assert(0); /* TODO: Error handling. */
+		exit(EXIT_FAILURE);
+	}
+}
+
 ASTNode Expr(struct Parser *, token);
 ASTNode Op(struct Parser *, token);
 
 //	expr
 //		operand
 //		operand binop expr
-ASTNode Expr(struct Parser *p, token t)
+ASTNode Expr(struct Parser* p, token t)
 {
 	ASTNode expr = Op(p, t);
 	switch (get_type(peek(p))) {
@@ -98,19 +124,20 @@ ASTNode Expr(struct Parser *p, token t)
 }
 
 /* Note, can seperate into two functions. */
-ASTNode NumberOrVector(struct Parser *p, token t)
+ASTNode SingleOrVector(struct Parser* p,token t, enum token_type expected_type)
 {
 	ASTNode res;
-	if (get_type(peek(p)) != TOKEN_NUMBER) {
-		res = make_number(get_value(t));
+	enum type value_type = token_to_value_type(expected_type);
+	if (get_type(peek(p)) != expected_type) {
+		res = make_single(get_value(t), value_type);
 		token_free(t);
 		return res;
 	}
-	res = make_vector(get_value(t));
+	res = make_vector(get_value(t), value_type);
 	token_free(t);
-	while (get_type(peek(p)) == TOKEN_NUMBER) {
+	while (get_type(peek(p)) == expected_type) {
 		t = next(p);
-		res = extend_vector(res, get_value(t));
+		res = extend_vector(res, get_value(t), value_type);
 		token_free(t);
 	}
 	return res;
@@ -123,7 +150,7 @@ ASTNode NumberOrVector(struct Parser *p, token t)
 //		operand
 //		number
 //		unop Expr
-ASTNode Op(struct Parser *p, token t)
+ASTNode Op(struct Parser* p, token t)
 {
 	ASTNode op;
 	switch(get_type(t)) {
@@ -135,7 +162,7 @@ ASTNode Op(struct Parser *p, token t)
 		token_free(t);
 		break;
 	case TOKEN_NUMBER:
-		op = NumberOrVector(p, t);
+		op = SingleOrVector(p, t, TOKEN_NUMBER);
 		break;
 	case TOKEN_OPERATOR:
 		op = make_unop(get_value(t), Expr(p, next(p)));
@@ -152,27 +179,48 @@ ASTNode Op(struct Parser *p, token t)
 		assert(0); /* TODO: Error handling */
 		return NULL;
 	};
-	return op; /* TODO: Indexing. */
+	return op;
 }
 
 //	statement
-//		Expr
-//		Expr ; Expr...
-ASTNode Statement(struct Parser *p, token t)
+//		Expr ;
+//		let Expr := Expr ; TODO
+ASTNode Statement(struct Parser* p, token t)
 {
-	ASTNode exp = Expr(p, t), res;
+	ASTNode res;
+	switch(get_type(t)) {
+	case TOKEN_LET: {
+		ASTNode lvalue;
+		lvalue = SingleOrVector(p, next(p), TOKEN_IDENTIFIER);
+		if (get_type(peek(p)) != TOKEN_ASSIGNMENT) {
+			fprintf(stderr, "Unexpected token %s\n", get_value(peek(p)));
+			assert(0);
+		}
+		next(p); /* Consume := */
+		res = make_assignment(lvalue, Expr(p, next(p)));
+		break;
+	}
+	default: /* By default, an expression statement. */
+		res = Expr(p, t);
+		break;
+	}
 	if (get_type(peek(p)) != TOKEN_SEMICOLON) {
-		return exp;
-	}
-	res = make_statement(exp);
-	while (get_type(peek(p)) == TOKEN_SEMICOLON) {
-		token_free(next(p));
-		exp = Expr(p, next(p));
-		res = extend_statement(res, exp);
-	}
-	if (get_type(peek(p)) != TOKEN_EOF) {
 		fprintf(stderr, "Unexpected token: %s\n", get_value(peek(p)));
 		assert(0);
+	}
+	next(p); /* Consume the semicolon. */
+	return res;
+}
+
+//	statementList
+//		statement...
+ASTNode StatementList(struct Parser* p, token t)
+{
+	ASTNode res = make_statement_list(), stmt;
+	while (get_type(t) != TOKEN_EOF) {
+		stmt = Statement(p, t);
+		res = extend_statement_list(res, stmt);
+		t = next(p);
 	}
 	return res;
 }
@@ -181,8 +229,7 @@ ASTNode parse(struct Parser* p, char* in, char* in_name)
 {
 	assert(p);
 	assert(in);
-
 	lexer_init(p->lex, in, in_name);
 	p->input_name = in_name;
-	return Statement(p, next(p));
+	return StatementList(p, next(p));
 }

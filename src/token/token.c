@@ -1,8 +1,6 @@
 #include "token.h"
-#include <stdio.h>
 
 #define MAX_SIZE 2048
-
 struct token_ {
 	enum token_type type;
 	size_t size;
@@ -76,6 +74,58 @@ char* get_value(token t)
 {
 	assert_valid_token(t);
 	return t->value;
+}
+
+/* Assumes that the out buffer can hold the result (is 2048*4 + 21 bytes). */
+void token_print(token t, char* out)
+{
+	char* name = NULL;
+	const char* sep = " : ";
+	const char* value = get_value(t);
+	const size_t seplen = strlen(sep);
+	const size_t valuelen = strlen(value);
+	size_t use = 0;
+	size_t namelen = 0;
+	switch(get_type(t)) {
+	case TOKEN_START:
+		name = "Start";
+		break;
+	case TOKEN_EOF:
+		name = "Eof";
+		break;
+	case TOKEN_NUMBER:
+		name = "Number";
+		break;
+	case TOKEN_OPERATOR:
+		name = "Operator";
+		break;
+	case TOKEN_LPAREN:
+		name = "Open parenthesis";
+		break;
+	case TOKEN_RPAREN:
+		name = "Close parenthesis";
+		break;
+	case TOKEN_SEMICOLON:
+		name = "Semicolon";
+		break;
+	case TOKEN_IDENTIFIER:
+		name = "Identifier";
+		break;
+	case TOKEN_LET:
+		name = "Let";
+		break;
+	case TOKEN_ASSIGNMENT:
+		name = "Assignment";
+		break;
+	};
+	namelen = strlen(name);
+	memcpy(out + use, name, namelen);
+	use += namelen;
+	memcpy(out + use, sep, seplen);
+	use += seplen;
+	memcpy(out + use, value, valuelen + 1);
+	use += valuelen + 1;
+	assert(use <= 2048 * 4 + 21);
 }
 
 size_t token_size()
