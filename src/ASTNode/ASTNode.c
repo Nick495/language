@@ -1,18 +1,20 @@
 #include "ASTNode.h"
 
 struct ASTNode_ {
-	enum {
-		AST_BINOP, AST_UNOP, AST_NUMBER, AST_VECTOR,
-		AST_ASSIGNMENT, AST_STATEMENT_LIST
-	} type;
+	enum { AST_BINOP,
+	       AST_UNOP,
+	       AST_NUMBER,
+	       AST_VECTOR,
+	       AST_ASSIGNMENT,
+	       AST_STATEMENT_LIST } type;
 	union {
 		struct { /* Binop */
 			ASTNode left;
-			char* dyad;
+			char *dyad;
 			ASTNode right;
 		};
 		struct { /* Unop */
-			char* monad;
+			char *monad;
 			ASTNode rest;
 		};
 		Value value; /* Number, vector */
@@ -23,7 +25,7 @@ struct ASTNode_ {
 		struct { /* Statement list */
 			size_t use;
 			size_t cap;
-			ASTNode* siblings;
+			ASTNode *siblings;
 		};
 	};
 };
@@ -37,13 +39,14 @@ static ASTNode make_node(void)
 }
 
 /* Returns a char* of the node to string, caller must free. */
-char* Stringify(ASTNode n)
+char *Stringify(ASTNode n)
 {
-	char* res = NULL;
-	switch(n->type) {
+	char *res = NULL;
+	switch (n->type) {
 	case AST_BINOP: {
-		char* left = Stringify(n->left), *right = Stringify(n->right);
-		size_t llen =strlen(left), dlen =strlen(n->dyad), rlen =strlen(right);
+		char *left = Stringify(n->left), *right = Stringify(n->right);
+		size_t llen = strlen(left), dlen = strlen(n->dyad),
+		       rlen = strlen(right);
 		/* Add room for two spaces and a null terminator. */
 		res = malloc((llen + dlen + rlen + 2 + 1) * sizeof *res);
 		assert(res); /* TODO: Error handling. */
@@ -53,9 +56,10 @@ char* Stringify(ASTNode n)
 		break;
 	}
 	case AST_UNOP: {
-		char* rest = Stringify(n->rest);
+		char *rest = Stringify(n->rest);
 		/* Add room for a space and a null terminator. */
-		res = malloc((strlen(n->monad) + strlen(rest) + 1 + 1) * sizeof *res);
+		res = malloc((strlen(n->monad) + strlen(rest) + 1 + 1) *
+			     sizeof *res);
 		assert(res); /* TODO: Error handling. */
 		sprintf(res, "%s %s", n->monad, rest);
 		free(rest);
@@ -66,7 +70,8 @@ char* Stringify(ASTNode n)
 		res = value_stringify(n->value);
 		break;
 	case AST_STATEMENT_LIST: {
-		char** strs = mem_alloc(sizeof *strs * n->use); /* TODO: Error h */
+		char **strs =
+		    mem_alloc(sizeof *strs * n->use); /* TODO: Error h */
 		size_t i, total_len = 0;
 		assert(strs);
 		for (i = 0; i < n->use; ++i) {
@@ -94,7 +99,8 @@ char* Stringify(ASTNode n)
 	}
 	case AST_ASSIGNMENT: {
 		char *lv = Stringify(n->lvalue), *rv = Stringify(n->rvalue);
-		size_t lvlen = strlen(lv), rvlen = strlen(rv), slen = strlen("> := <");
+		size_t lvlen = strlen(lv), rvlen = strlen(rv),
+		       slen = strlen("> := <");
 		res = malloc(1 + lvlen + slen + rvlen + 1 + 1);
 		assert(res); /* TODO: Error handling. */
 		sprintf(res, "<%s> := <%s>", lv, rv);
@@ -105,14 +111,14 @@ char* Stringify(ASTNode n)
 	default:
 		return NULL;
 	}
-	assert(res); /* TODO: Error handling. */
+	assert(res);
 	return res;
 }
 
 Value Eval(ASTNode n)
 {
 	Value res;
-	switch(n->type) {
+	switch (n->type) {
 	case AST_BINOP: {
 		Value left = Eval(n->left), right = Eval(n->right);
 		res = value_add(left, right);
@@ -139,7 +145,7 @@ void free_node(ASTNode n)
 	if (!n) {
 		return;
 	}
-	switch(n->type) {
+	switch (n->type) {
 	case AST_BINOP:
 		free_node(n->left);
 		free_node(n->right);
@@ -167,7 +173,7 @@ void free_node(ASTNode n)
 	free(n);
 }
 
-ASTNode make_binop(ASTNode left, char* dyad, ASTNode right)
+ASTNode make_binop(ASTNode left, char *dyad, ASTNode right)
 {
 	ASTNode n = make_node();
 	assert(n); /* TODO: Error handling. */
@@ -178,7 +184,7 @@ ASTNode make_binop(ASTNode left, char* dyad, ASTNode right)
 	return n;
 }
 
-ASTNode make_unop(char* monad, ASTNode right)
+ASTNode make_unop(char *monad, ASTNode right)
 {
 	ASTNode n = make_node();
 	assert(n); /* TODO: Error handling. */
@@ -190,34 +196,31 @@ ASTNode make_unop(char* monad, ASTNode right)
 
 /* TODO: Floating point, other primitive types. */
 /* TODO: Should this be in the parser instead? */
-static unsigned long parse_num(char* text)
-{
-	return strtol(text, NULL, 10);
-}
+static unsigned long parse_num(char *text) { return strtol(text, NULL, 10); }
 
-ASTNode make_single(char* val, enum type type)
+ASTNode make_single(char *val, enum type type)
 {
 	ASTNode n = make_node();
-	struct value_atom atom = { type, { parse_num(val) } };
+	struct value_atom atom = {type, {parse_num(val)}};
 	assert(n); /* TODO: Error handling */
 	n->type = AST_NUMBER;
 	n->value = value_make_single(atom);
 	return n;
 }
 
-ASTNode make_vector(char* val, enum type type)
+ASTNode make_vector(char *val, enum type type)
 {
 	ASTNode n = make_node();
-	struct value_atom atom = { type, { parse_num(val) } };
+	struct value_atom atom = {type, {parse_num(val)}};
 	assert(n); /* TODO: Error handling */
 	n->type = AST_VECTOR;
 	n->value = value_make_vector(atom);
 	return n;
 }
 
-ASTNode extend_vector(ASTNode vec, char* val, enum type type)
+ASTNode extend_vector(ASTNode vec, char *val, enum type type)
 {
-	struct value_atom atom = { type, { parse_num(val) } };
+	struct value_atom atom = {type, {parse_num(val)}};
 	assert(vec->type == AST_VECTOR);
 	vec->value = value_append(vec->value, atom);
 	return vec;
@@ -248,13 +251,14 @@ ASTNode make_statement_list()
 ASTNode extend_statement_list(ASTNode list, ASTNode stmt)
 {
 	list->siblings[list->use++] = stmt;
-	if (list->use == list->cap) {
-		ASTNode* new = NULL;
-		new = mem_realloc(list->siblings, sizeof *new * list->cap * 2);
-		assert(new); /* TODO: Error handling. */
-		mem_dealloc(list->siblings);
-		list->cap *= 2;
-		list->siblings = new;
+	if (list->use < list->cap) {
+		return list;
 	}
+
+	ASTNode *new = NULL;
+	new = mem_realloc(list->siblings, sizeof *new * list->cap * 2);
+	assert(new); /* TODO: Error handling. */
+	list->cap *= 2;
+	list->siblings = new;
 	return list;
 }

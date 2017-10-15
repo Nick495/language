@@ -1,15 +1,15 @@
-#include <stdlib.h>         /* exit() */
-#include <stdio.h>          /* FILE*, fprintf() */
-#include <unistd.h>         /* read() */
-#include <string.h>         /* strerror() */
-#include <errno.h>          /* errno */
-#include "mem/mem.h"		/* mem_alloc(), mem_free() */
-#include "token/token.h"	/* Tokens from lexer. (token) */
-#include "value/value.h"	/* Value types */
-#include "lex/lex.h"		/* lexer. */
+#include "ASTNode/ASTNode.h"   /* ASTNode definitions */
+#include "lex/lex.h"	   /* lexer. */
+#include "mem/mem.h"	   /* mem_alloc(), mem_free() */
 #include "symtable/symtable.h" /* Symbol table */
-#include "ASTNode/ASTNode.h"/* ASTNode definitions */
+#include "token/token.h"       /* Tokens from lexer. (token) */
+#include "value/value.h"       /* Value types */
+#include <errno.h>	     /* errno */
+#include <stdio.h>	     /* FILE*, fprintf() */
+#include <stdlib.h>	    /* exit() */
+#include <string.h>	    /* strerror() */
+#include <unistd.h>	    /* read() */
 
-struct Parser* parser_make();
-ASTNode parse(struct Parser *p, char* in, char* in_name);
+struct Parser *parser_make();
+ASTNode parse(struct Parser *p, char *in, char *in_name);
 void parser_free(struct Parser *p);

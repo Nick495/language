@@ -4,9 +4,9 @@ struct Value_ {
 	enum type type;
 	/* Inspired by Roger Hui's An Implementation of J */
 	size_t rank;
-	size_t ecount; /* Number of elements used. */
-	size_t acount; /* Number of elements allocated. */
-	size_t esize; /* Size of element type in bytes. */
+	size_t ecount;		/* Number of elements used. */
+	size_t acount;		/* Number of elements allocated. */
+	size_t esize;		/* Size of element type in bytes. */
 	union value_data sd[2]; /* Preallocated for the singleton case. */
 };
 
@@ -14,7 +14,7 @@ static void print_value(Value v)
 {
 	fprintf(stderr, "DEBUG:\n");
 	fprintf(stderr, "refcount: %zu\n", v->refcount);
-	switch(v->type) {
+	switch (v->type) {
 	case VECTOR:
 		fprintf(stderr, "type: vector\n");
 		break;
@@ -29,7 +29,7 @@ static void print_value(Value v)
 	fprintf(stderr, "acount: %zu\n", v->acount);
 	fprintf(stderr, "rank: %zu\n", v->rank);
 	for (size_t i = 0; i < v->ecount; ++i) {
-		switch(v->type) {
+		switch (v->type) {
 		case INTEGER:
 			fprintf(stderr, "%lu\n", v->sd[v->rank + i].integer);
 			break;
@@ -40,24 +40,28 @@ static void print_value(Value v)
 			fprintf(stderr, "%zu\n", v->sd[v->rank + i].symbol);
 			break;
 		case FUNCTION:
-			fprintf(stderr, "rank: %zu\n", v->sd[v->rank+i].function.func_rank);
-			fprintf(stderr, "arity: %d\n", v->sd[v->rank + i].function.arity);
-			fprintf(stderr, "hash: %zu\n", v->sd[v->rank + i].function.hash);
+			fprintf(stderr, "rank: %zu\n",
+				v->sd[v->rank + i].function.func_rank);
+			fprintf(stderr, "arity: %d\n",
+				v->sd[v->rank + i].function.arity);
+			fprintf(stderr, "hash: %zu\n",
+				v->sd[v->rank + i].function.hash);
 			break;
 		}
 	}
 	return;
 }
 
-static void set_value_atom_data(union value_data* dst, union value_data* src)
+static void set_value_atom_data(union value_data *dst, union value_data *src)
 {
 	memcpy(dst, src, sizeof *dst);
 }
 
 Value value_make_single(struct value_atom value)
 {
-	Value atom = mem_alloc(sizeof *atom); /* Singleton values are presized. */
-	assert(atom); /* TODO: Error handling */
+	Value atom =
+	    mem_alloc(sizeof *atom); /* Singleton values are presized. */
+	assert(atom);		     /* TODO: Error handling */
 	atom->refcount = 1;
 	atom->rank = 0;
 	atom->ecount = 1;
@@ -71,7 +75,8 @@ Value value_make_single(struct value_atom value)
 Value value_make_vector(struct value_atom value)
 {
 	const size_t init_count = 10;
-	Value vec = mem_alloc(sizeof *vec + sizeof vec->sd[0] * (init_count + 1));
+	Value vec =
+	    mem_alloc(sizeof *vec + sizeof vec->sd[0] * (init_count + 1));
 	assert(vec); /* TODO: Error handling */
 	vec->refcount = 1;
 	vec->rank = 1;
@@ -90,7 +95,8 @@ Value value_append(Value v, struct value_atom val)
 	if (v->ecount == v->acount) {
 		Value n;
 		v->acount *= 2;
-		n = mem_realloc(v, sizeof *v + sizeof v->sd[0]* (v->acount + v->rank));
+		n = mem_realloc(v, sizeof *v +
+				       sizeof v->sd[0] * (v->acount + v->rank));
 		assert(n); /* TODO: Error handling. */
 		v = n;
 	}
@@ -120,13 +126,16 @@ char *value_stringify(Value v)
 {
 	const size_t UINT64_DIGITS = 20; /* log(2^64) / log(10) = 19.3 ~ 20. */
 	/* I.e. the maximum length of an integer printed in decimal. */
-	const size_t len = (UINT64_DIGITS + 1) * (v->ecount + 2) * (v->rank + 1);
-	/* ' ' between values, 2 '\n's between dimensions, and '\0' terminator. */
+	const size_t len =
+	    (UINT64_DIGITS + 1) * (v->ecount + 2) * (v->rank + 1);
+	/* ' ' between values, 2 '\n's between dimensions, and '\0' terminator.
+	 */
 	char *tmp = mem_alloc(len);
 	assert(tmp); /* TODO: Error handling */
 	size_t pos = 0;
 	for (size_t i = 0; i < v->ecount; ++i) {
-		pos += snprintf((tmp + pos), len - pos, "%ld ", v->sd[v->rank + i].integer);
+		pos += snprintf((tmp + pos), len - pos, "%ld ",
+				v->sd[v->rank + i].integer);
 	}
 	tmp[--pos] = '\0'; /* Remove trailing space */
 	return tmp;
@@ -147,7 +156,8 @@ static int prefixes_agree(Value a, Value w)
 static Value copy_value_container(Value v)
 {
 	/* NOTE: This is actually oversizing the array for many types. */
-	Value cpy = mem_alloc(sizeof *cpy +sizeof v->sd[0] *(v->ecount +v->rank));
+	Value cpy =
+	    mem_alloc(sizeof *cpy + sizeof v->sd[0] * (v->ecount + v->rank));
 	assert(cpy); /* TODO: Error handling */
 	cpy->refcount = 1;
 	cpy->rank = v->rank;
@@ -160,9 +170,8 @@ static Value copy_value_container(Value v)
 
 typedef union value_data (*tmp_funcdef)(union value_data, union value_data);
 
-static void apply_binop(
-		union value_data* res, union value_data* a, union value_data* w,
-		tmp_funcdef op, size_t cnt)
+static void apply_binop(union value_data *res, union value_data *a,
+			union value_data *w, tmp_funcdef op, size_t cnt)
 {
 	for (size_t i = 0; i < cnt; ++i) {
 		res[i] = op(a[i], w[i]);
@@ -180,13 +189,9 @@ static Value binop(Value a, Value w, tmp_funcdef op)
 	}
 	const size_t repitions = a->rank == w->rank ? 1 : a->rank - w->rank;
 	for (size_t extrank = 0; extrank < repitions; ++extrank) {
-		apply_binop(
-			&res->sd[res->rank + (extrank * w->ecount)],
-			&a->sd[a->rank + (extrank * w->ecount)],
-			&w->sd[w->rank],
-			op,
-			w->ecount
-		);
+		apply_binop(&res->sd[res->rank + (extrank * w->ecount)],
+			    &a->sd[a->rank + (extrank * w->ecount)],
+			    &w->sd[w->rank], op, w->ecount);
 	}
 	return res;
 }

@@ -1,9 +1,9 @@
-#include <stdio.h>          /* FILE*, getc() */
-#include <errno.h>			/* errno, strerror() */
-#include "token/token.h"	/* token, token_Free(), get_type() */
-#include "lex/lex.h"		/* lexer_make(), lexer_init(), lex_token() */
+#include "lex/lex.h"     /* lexer_make(), lexer_init(), lex_token() */
+#include "token/token.h" /* token, token_Free(), get_type() */
+#include <errno.h>       /* errno, strerror() */
+#include <stdio.h>       /* FILE*, getc() */
 
-static void print_token(token t, FILE* out)
+static void print_token(token t, FILE *out)
 {
 	char out_buf[2048 * 4 + 21];
 	token_print(t, out_buf);
@@ -16,8 +16,8 @@ int main(void)
 	int c;
 	size_t bufuse = 0;
 	size_t bufsize = 1024;
-	char* buf = malloc(sizeof *buf * bufsize);
-	struct lexer* lex = lexer_make();
+	char *buf = malloc(sizeof *buf * bufsize);
+	struct lexer *lex = lexer_make();
 	assert(buf); /* TODO: Error handling. */
 	assert(lex); /* TODO: Error handling. */
 	while ((c = getchar_unlocked()) != EOF) {
@@ -32,7 +32,8 @@ int main(void)
 	assert(strlen(buf) == bufuse);
 
 	lexer_init(lex, buf, "stdin");
-	for (t=lex_token(lex, t); get_type(t) != TOKEN_EOF; t=lex_token(lex, t)) {
+	for (t = lex_token(lex, t); get_type(t) != TOKEN_EOF;
+	     t = lex_token(lex, t)) {
 		print_token(t, stdout);
 	}
 	token_free(t);

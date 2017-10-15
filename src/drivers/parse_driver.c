@@ -1,7 +1,7 @@
-#include <stdio.h>          /* FILE*, getc() */
-#include <stdlib.h>			/* malloc(), realloc() */
-#include "../parse/parse.h"	/* Parses tokens. */
 #include "../ASTNode/ASTNode.h" /* node_free() */
+#include "../parse/parse.h"     /* Parses tokens. */
+#include <stdio.h>		/* FILE*, getc() */
+#include <stdlib.h>		/* malloc(), realloc() */
 
 struct darray {
 	size_t use;
@@ -27,15 +27,12 @@ void darray_push(struct darray *d, char c)
 		assert(d->str); /* TODO: Error handling. */
 	}
 }
-void darray_free(struct darray* d)
-{
-	free(d->str);
-}
+void darray_free(struct darray *d) { free(d->str); }
 
 int main(void)
 {
 	int c;
-	struct Parser* p = parser_make();
+	struct Parser *p = parser_make();
 	struct darray buffer = make_darray();
 	char *res;
 	ASTNode tree = NULL;

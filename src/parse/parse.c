@@ -5,18 +5,18 @@
 struct Parser {
 	size_t buf_read;
 	size_t buf_write;
-	struct lexer* lex;
+	struct lexer *lex;
 	token buf[LOOKAHEAD];
 	struct symtable_list {
-		struct symtable* symbols;
-		struct symtable_list* up;
+		struct symtable *symbols;
+		struct symtable_list *up;
 	} environment;
-	char* input_name;
+	char *input_name;
 };
 
-struct Parser* parser_make()
+struct Parser *parser_make()
 {
-	struct Parser* p = mem_alloc(sizeof *p + token_size() * LOOKAHEAD);
+	struct Parser *p = mem_alloc(sizeof *p + token_size() * LOOKAHEAD);
 	assert(p); /* TODO: Error handling. */
 	p->lex = lexer_make();
 	assert(p->lex); /* TODO: Error handling. */
@@ -31,7 +31,7 @@ struct Parser* parser_make()
 	return p;
 }
 
-void parser_free(struct Parser* p)
+void parser_free(struct Parser *p)
 {
 	if (p) {
 		lexer_free(p->lex);
@@ -43,12 +43,9 @@ void parser_free(struct Parser* p)
 	free(p);
 }
 
-static int is_empty(struct Parser* p)
-{
-	return p->buf_write == p->buf_read;
-}
+static int is_empty(struct Parser *p) { return p->buf_write == p->buf_read; }
 
-static token token_pop(struct Parser* p)
+static token token_pop(struct Parser *p)
 {
 	token t = NULL;
 	t = token_copy(t, p->buf[p->buf_read]);
@@ -56,13 +53,13 @@ static token token_pop(struct Parser* p)
 	return t;
 }
 
-static void token_push(struct Parser* p)
+static void token_push(struct Parser *p)
 {
 	p->buf[p->buf_write] = lex_token(p->lex, p->buf[p->buf_write]);
 	p->buf_write = (p->buf_write + 1) % LOOKAHEAD;
 }
 
-static token peek(struct Parser* p)
+static token peek(struct Parser *p)
 {
 	if (is_empty(p)) {
 		token_push(p);
@@ -70,7 +67,7 @@ static token peek(struct Parser* p)
 	return p->buf[p->buf_read];
 }
 
-static token next(struct Parser* p)
+static token next(struct Parser *p)
 {
 	token t = NULL;
 	if (is_empty(p)) {
@@ -82,7 +79,7 @@ static token next(struct Parser* p)
 	return t;
 }
 
-static void assign(struct Parser* p, const char* name, Value value)
+static void assign(struct Parser *p, const char *name, Value value)
 {
 	symtable_push(p->environment.symbols, name, value);
 }
@@ -107,7 +104,7 @@ ASTNode Op(struct Parser *, token);
 //	expr
 //		operand
 //		operand binop expr
-ASTNode Expr(struct Parser* p, token t)
+ASTNode Expr(struct Parser *p, token t)
 {
 	ASTNode expr = Op(p, t);
 	switch (get_type(peek(p))) {
@@ -124,7 +121,7 @@ ASTNode Expr(struct Parser* p, token t)
 }
 
 /* Note, can seperate into two functions. */
-ASTNode SingleOrVector(struct Parser* p,token t, enum token_type expected_type)
+ASTNode SingleOrVector(struct Parser *p, token t, enum token_type expected_type)
 {
 	ASTNode res;
 	enum type value_type = token_to_value_type(expected_type);
@@ -150,10 +147,10 @@ ASTNode SingleOrVector(struct Parser* p,token t, enum token_type expected_type)
 //		operand
 //		number
 //		unop Expr
-ASTNode Op(struct Parser* p, token t)
+ASTNode Op(struct Parser *p, token t)
 {
 	ASTNode op;
-	switch(get_type(t)) {
+	switch (get_type(t)) {
 	case TOKEN_LPAREN:
 		op = Expr(p, next(p));
 		token_free(t);
@@ -185,15 +182,16 @@ ASTNode Op(struct Parser* p, token t)
 //	statement
 //		Expr ;
 //		let Expr := Expr ; TODO
-ASTNode Statement(struct Parser* p, token t)
+ASTNode Statement(struct Parser *p, token t)
 {
 	ASTNode res;
-	switch(get_type(t)) {
+	switch (get_type(t)) {
 	case TOKEN_LET: {
 		ASTNode lvalue;
 		lvalue = SingleOrVector(p, next(p), TOKEN_IDENTIFIER);
 		if (get_type(peek(p)) != TOKEN_ASSIGNMENT) {
-			fprintf(stderr, "Unexpected token %s\n", get_value(peek(p)));
+			fprintf(stderr, "Unexpected token %s\n",
+				get_value(peek(p)));
 			assert(0);
 		}
 		next(p); /* Consume := */
@@ -214,7 +212,7 @@ ASTNode Statement(struct Parser* p, token t)
 
 //	statementList
 //		statement...
-ASTNode StatementList(struct Parser* p, token t)
+ASTNode StatementList(struct Parser *p, token t)
 {
 	ASTNode res = make_statement_list(), stmt;
 	while (get_type(t) != TOKEN_EOF) {
@@ -225,7 +223,7 @@ ASTNode StatementList(struct Parser* p, token t)
 	return res;
 }
 
-ASTNode parse(struct Parser* p, char* in, char* in_name)
+ASTNode parse(struct Parser *p, char *in, char *in_name)
 {
 	assert(p);
 	assert(in);

@@ -1,12 +1,12 @@
 #ifndef VALUE_H_
 #define VALUE_H_
 
-#include <assert.h>		/* assert() */
-#include <stdio.h>		/* snprintf() */
-#include <string.h>		/* memcpy() */
-#include "mem/mem.h"	/* mem_alloc(), mem_free() */
+#include "mem/mem.h" /* mem_alloc(), mem_free() */
+#include <assert.h>  /* assert() */
+#include <stdio.h>   /* snprintf() */
+#include <string.h>  /* memcpy() */
 
-typedef struct Value_* Value;
+typedef struct Value_ *Value;
 
 enum type { INTEGER, VECTOR, SYMBOL, FUNCTION } type;
 enum error_type { INVALID_ARGS };
@@ -35,5 +35,5 @@ Value value_append(Value v, struct value_atom val);
 Value value_add(Value a, Value w);
 Value value_reference(Value v);
 void value_free(Value v);
-char* value_stringify(Value v);
+char *value_stringify(Value v);
 #endif

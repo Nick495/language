@@ -14,10 +14,7 @@ static void assert_valid_token(token t)
 }
 
 /* Handles null case for internal code reuse. */
-void token_free(token t)
-{
-	mem_dealloc(t);
-}
+void token_free(token t) { mem_dealloc(t); }
 
 static token alloc_token(token prev)
 {
@@ -26,7 +23,8 @@ static token alloc_token(token prev)
 		t = prev;
 	} else {
 		t = mem_alloc(sizeof *t);
-		if (!t) goto fail_mem_alloc_token;
+		if (!t)
+			goto fail_mem_alloc_token;
 	}
 	t->value[0] = '\0';
 	t->size = 0;
@@ -38,12 +36,13 @@ fail_mem_alloc_token:
 	return NULL;
 }
 
-token token_make(enum token_type type, const char* s, size_t slen, token prev)
+token token_make(enum token_type type, const char *s, size_t slen, token prev)
 {
 	token t;
 	assert(slen < MAX_SIZE); /* TODO: Error handling. */
 	t = alloc_token(prev);
-	if (!t) goto fail_alloc_token;
+	if (!t)
+		goto fail_alloc_token;
 	t->type = type;
 	t->size = slen;
 	memcpy(t->value, s, slen + 1);
@@ -70,23 +69,23 @@ enum token_type get_type(token t)
 	return t->type;
 }
 
-char* get_value(token t)
+char *get_value(token t)
 {
 	assert_valid_token(t);
 	return t->value;
 }
 
 /* Assumes that the out buffer can hold the result (is 2048*4 + 21 bytes). */
-void token_print(token t, char* out)
+void token_print(token t, char *out)
 {
-	char* name = NULL;
-	const char* sep = " : ";
-	const char* value = get_value(t);
+	char *name = NULL;
+	const char *sep = " : ";
+	const char *value = get_value(t);
 	const size_t seplen = strlen(sep);
 	const size_t valuelen = strlen(value);
 	size_t use = 0;
 	size_t namelen = 0;
-	switch(get_type(t)) {
+	switch (get_type(t)) {
 	case TOKEN_START:
 		name = "Start";
 		break;
