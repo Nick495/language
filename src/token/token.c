@@ -1,19 +1,20 @@
 #include "token.h"
 
-#define MAX_SIZE 2048
 struct token_ {
 	enum token_type type;
-	size_t size;
-	char value[MAX_SIZE];
+	size_t len;
+	size_t off;
+	const char *src;
 };
 
-static void assert_valid_token(token t)
+static void assert_valid_token(token t) { assert(t); }
+
+size_t token_size()
 {
-	assert(t);
-	assert(strlen(t->value) == t->size);
+	token t;
+	return sizeof *t;
 }
 
-/* Handles null case for internal code reuse. */
 void token_free(token t) { mem_dealloc(t); }
 
 static token alloc_token(token prev)
@@ -26,26 +27,24 @@ static token alloc_token(token prev)
 		if (!t)
 			goto fail_mem_alloc_token;
 	}
-	t->value[0] = '\0';
-	t->size = 0;
 	assert_valid_token(t);
 	return t;
 
-fail_mem_alloc_token:
 	token_free(t);
+fail_mem_alloc_token:
 	return NULL;
 }
 
-token token_make(enum token_type type, const char *s, size_t slen, token prev)
+token token_make(enum token_type type, const char *src, size_t len, size_t off,
+		 token prev)
 {
-	token t;
-	assert(slen < MAX_SIZE); /* TODO: Error handling. */
-	t = alloc_token(prev);
-	if (!t)
+	token t = alloc_token(prev);
+	if (!t || !src)
 		goto fail_alloc_token;
 	t->type = type;
-	t->size = slen;
-	memcpy(t->value, s, slen + 1);
+	t->len = len;
+	t->off = off;
+	t->src = src;
 	assert_valid_token(t);
 	return t;
 
@@ -58,8 +57,8 @@ token token_copy(token dst, token src)
 {
 	assert_valid_token(src);
 	dst = alloc_token(dst);
-	assert_valid_token(dst); /* TODO: Error handling */
-	memcpy(dst, src, sizeof *src);
+	assert_valid_token(dst);
+	memcpy(dst, src, sizeof *src); /* Copy internals by value. */
 	return dst;
 }
 
@@ -69,66 +68,57 @@ enum token_type get_type(token t)
 	return t->type;
 }
 
-char *get_value(token t)
+size_t get_len(token t)
 {
 	assert_valid_token(t);
-	return t->value;
+	return t->len;
 }
 
+const char *get_value(token t)
+{
+	assert_valid_token(t);
+	return &(t->src[t->off]);
+}
+
+struct name_map {
+	enum token_type type;
+	char *text;
+	size_t length;
+};
+struct name_map name_map_search(enum token_type type)
+{
+	struct name_map map[TOKEN_TYPE_COUNT - TOKEN_START] = {
+	    {TOKEN_START, "Start", strlen("Start")},
+	    {TOKEN_EOF, "Eof", strlen("Eof")},
+	    {TOKEN_NUMBER, "Number", strlen("Number")},
+	    {TOKEN_OPERATOR, "Operator", strlen("Operator")},
+	    {TOKEN_LPAREN, "Open parenthesis", strlen("Open parenthesis")},
+	    {TOKEN_RPAREN, "Close parenthesis", strlen("Close parenthesis")},
+	    {TOKEN_SEMICOLON, "Semicolon", strlen("Semicolon")},
+	    {TOKEN_IDENTIFIER, "Identifier", strlen("Identifier")},
+	    {TOKEN_LET, "Let", strlen("Let")},
+	    {TOKEN_ASSIGNMENT, "Assignment", strlen("Assignment")}};
+	return map[type];
+}
+
+#define SEPERATOR " : "
 /* Assumes that the out buffer can hold the result (is 2048*4 + 21 bytes). */
 void token_print(token t, char *out)
 {
-	char *name = NULL;
-	const char *sep = " : ";
-	const char *value = get_value(t);
-	const size_t seplen = strlen(sep);
-	const size_t valuelen = strlen(value);
 	size_t use = 0;
-	size_t namelen = 0;
-	switch (get_type(t)) {
-	case TOKEN_START:
-		name = "Start";
-		break;
-	case TOKEN_EOF:
-		name = "Eof";
-		break;
-	case TOKEN_NUMBER:
-		name = "Number";
-		break;
-	case TOKEN_OPERATOR:
-		name = "Operator";
-		break;
-	case TOKEN_LPAREN:
-		name = "Open parenthesis";
-		break;
-	case TOKEN_RPAREN:
-		name = "Close parenthesis";
-		break;
-	case TOKEN_SEMICOLON:
-		name = "Semicolon";
-		break;
-	case TOKEN_IDENTIFIER:
-		name = "Identifier";
-		break;
-	case TOKEN_LET:
-		name = "Let";
-		break;
-	case TOKEN_ASSIGNMENT:
-		name = "Assignment";
-		break;
-	};
-	namelen = strlen(name);
-	memcpy(out + use, name, namelen);
-	use += namelen;
-	memcpy(out + use, sep, seplen);
-	use += seplen;
-	memcpy(out + use, value, valuelen + 1);
-	use += valuelen + 1;
-	assert(use <= 2048 * 4 + 21);
+	struct name_map lookup = name_map_search(t->type);
+
+	memcpy(out + use, lookup.text, lookup.length);
+	use += lookup.length;
+	memcpy(out + use, SEPERATOR, strlen(SEPERATOR));
+	use += strlen(SEPERATOR);
+	memcpy(out + use, get_value(t), t->len);
+	use += t->len;
+	out[use++] = '\0';
 }
 
-size_t token_size()
+size_t token_print_len(token t)
 {
-	token t;
-	return sizeof *t;
+	struct name_map lookup = name_map_search(t->type);
+	return lookup.length + strlen(SEPERATOR) + t->len + 1;
 }

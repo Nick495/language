@@ -7,7 +7,7 @@
 #include <string.h>  /* memcpy(), strlen() */
 
 enum token_type {
-	TOKEN_START,
+	TOKEN_START = 0,
 	TOKEN_EOF,
 	TOKEN_NUMBER,
 	TOKEN_LPAREN,
@@ -17,15 +17,16 @@ enum token_type {
 	TOKEN_IDENTIFIER,
 	TOKEN_LET,
 	TOKEN_ASSIGNMENT,
+	TOKEN_TYPE_COUNT /* NOT A REAL TOKEN TYPE, merely a count of them. */
 };
 
 typedef struct token_ *token;
 
-/* slen = strlen(s) */
-token token_make(enum token_type type, const char *s, size_t slen, token prev);
+token token_make(enum token_type type, const char *src, size_t len, size_t off,
+		 token prev);
 void token_free(token);
 token token_copy(token dst, token src);
-char *get_value(token);
+const char *get_value(token t);
 void token_print(token t, char *out);
 enum token_type get_type(token);
 size_t token_size();

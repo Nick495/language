@@ -9,26 +9,20 @@ typedef state_func (*state_func_ptr)(struct lexer *);
 
 static state_func lex_start(struct lexer *);
 
-/* Max token length is 2048 characters. UTF8 characters are max 4 bytes. */
-enum MAX_TOKEN_LEN { MAX_TOKEN_LEN = 2048 };
-enum RUNE_SIZE { RUNE_SIZE = 4 };
-
-struct lexer {
-	char *str;
-	state_func_ptr state;
-	char *cur;
-	char *pos;
-	int emitted;
-	int inject_semi;
-	enum token_type token_type;
-	size_t token_len;
-	const char *in_name; /* End of cache line. */
-	char token_str[MAX_TOKEN_LEN * RUNE_SIZE];
+struct lexer {		      /* Cumulative size in bytes */
+	char *str;	    /*  8 */
+	state_func_ptr state; /* 16 */
+	char *cur;	    /* 24 */
+	char *pos;	    /* 32 */
+	int emitted;	  /* 40 */
+	int inject_semi;      /* 48 */
+	const char *in_name;  /* 56 */
+	token holder;	 /* 64 (End of cache line */
 };
 
 struct lexer *lexer_make()
 {
-	struct lexer *l = mem_alloc(sizeof *l + token_size());
+	struct lexer *l = mem_alloc(sizeof *l);
 	assert(l); /* TODO: Error handling */
 	return l;
 }
@@ -39,18 +33,6 @@ void lexer_free(struct lexer *l)
 	free(l);
 }
 
-token lex_token(struct lexer *l, token prev)
-{
-	token t;
-	assert(l);
-	while (l->state != NULL && !l->emitted) {
-		l->state = (state_func_ptr)l->state(l);
-	}
-	t = token_make(l->token_type, l->token_str, l->token_len, prev);
-	l->emitted = 0;
-	return t;
-}
-
 void lexer_init(struct lexer *l, char *in, char *in_name)
 {
 	assert(l);
@@ -58,17 +40,25 @@ void lexer_init(struct lexer *l, char *in, char *in_name)
 	l->str = in;
 	l->in_name = in_name;
 	l->cur = l->pos = l->str;
-	l->token_len = l->emitted = 0;
+	l->inject_semi = l->emitted = 0;
+}
+
+token lex_token(struct lexer *l, token prev)
+{
+	assert(l);
+	l->holder = prev;
+	while (l->state != NULL && !l->emitted) {
+		l->state = (state_func_ptr)l->state(l);
+	}
+	l->emitted = 0;
+	return l->holder;
 }
 
 static void emit_token(struct lexer *l, enum token_type type)
 {
-	/* TODO: Remove copy here by refactoring empty_string & token_make? */
-	l->token_type = type;
-	l->token_len = l->pos - l->cur;
-	memcpy(l->token_str, l->cur, l->token_len);
-	l->token_str[l->token_len] = '\0';
 	l->emitted = 1;
+	l->holder = token_make(type, l->str, l->pos - l->cur, l->cur - l->str,
+			       l->holder);
 	l->cur = l->pos;
 	return;
 }

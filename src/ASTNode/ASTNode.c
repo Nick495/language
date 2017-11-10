@@ -10,11 +10,11 @@ struct ASTNode_ {
 	union {
 		struct { /* Binop */
 			ASTNode left;
-			char *dyad;
+			const char *dyad;
 			ASTNode right;
 		};
 		struct { /* Unop */
-			char *monad;
+			const char *monad;
 			ASTNode rest;
 		};
 		Value value; /* Number, vector */
@@ -173,7 +173,7 @@ void free_node(ASTNode n)
 	free(n);
 }
 
-ASTNode make_binop(ASTNode left, char *dyad, ASTNode right)
+ASTNode make_binop(ASTNode left, const char *dyad, ASTNode right)
 {
 	ASTNode n = make_node();
 	assert(n); /* TODO: Error handling. */
@@ -184,7 +184,7 @@ ASTNode make_binop(ASTNode left, char *dyad, ASTNode right)
 	return n;
 }
 
-ASTNode make_unop(char *monad, ASTNode right)
+ASTNode make_unop(const char *monad, ASTNode right)
 {
 	ASTNode n = make_node();
 	assert(n); /* TODO: Error handling. */
@@ -196,9 +196,12 @@ ASTNode make_unop(char *monad, ASTNode right)
 
 /* TODO: Floating point, other primitive types. */
 /* TODO: Should this be in the parser instead? */
-static unsigned long parse_num(char *text) { return strtol(text, NULL, 10); }
+static unsigned long parse_num(const char *text)
+{
+	return strtol(text, NULL, 10);
+}
 
-ASTNode make_single(char *val, enum type type)
+ASTNode make_single(const char *val, enum value_type type)
 {
 	ASTNode n = make_node();
 	struct value_atom atom = {type, {parse_num(val)}};
@@ -208,7 +211,7 @@ ASTNode make_single(char *val, enum type type)
 	return n;
 }
 
-ASTNode make_vector(char *val, enum type type)
+ASTNode make_vector(const char *val, enum value_type type)
 {
 	ASTNode n = make_node();
 	struct value_atom atom = {type, {parse_num(val)}};
@@ -218,7 +221,7 @@ ASTNode make_vector(char *val, enum type type)
 	return n;
 }
 
-ASTNode extend_vector(ASTNode vec, char *val, enum type type)
+ASTNode extend_vector(ASTNode vec, const char *val, enum value_type type)
 {
 	struct value_atom atom = {type, {parse_num(val)}};
 	assert(vec->type == AST_VECTOR);

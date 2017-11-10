@@ -15,12 +15,12 @@ char *Stringify(ASTNode n);
 Value Eval(ASTNode n);
 void free_node(ASTNode n);
 
-ASTNode make_binop(ASTNode left, char *dyad, ASTNode right);
-ASTNode make_unop(char *monad, ASTNode right);
+ASTNode make_binop(ASTNode left, const char *dyad, ASTNode right);
+ASTNode make_unop(const char *monad, ASTNode right);
 
-ASTNode make_single(char *val, enum type type);
-ASTNode make_vector(char *val, enum type type);
-ASTNode extend_vector(ASTNode vec, char *val, enum type type);
+ASTNode make_single(const char *val, enum value_type type);
+ASTNode make_vector(const char *val, enum value_type type);
+ASTNode extend_vector(ASTNode vec, const char *val, enum value_type type);
 ASTNode make_statement(ASTNode e);
 ASTNode make_assignment(ASTNode lvalue, ASTNode rvalue);
 ASTNode make_statement_list();

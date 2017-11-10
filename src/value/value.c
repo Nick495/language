@@ -1,12 +1,11 @@
 #include "value.h"
 struct Value_ {
 	size_t refcount;
-	enum type type;
+	enum value_type type;
 	/* Inspired by Roger Hui's An Implementation of J */
 	size_t rank;
 	size_t ecount;		/* Number of elements used. */
 	size_t acount;		/* Number of elements allocated. */
-	size_t esize;		/* Size of element type in bytes. */
 	union value_data sd[2]; /* Preallocated for the singleton case. */
 };
 
@@ -47,6 +46,10 @@ static void print_value(Value v)
 			fprintf(stderr, "hash: %zu\n",
 				v->sd[v->rank + i].function.hash);
 			break;
+		case ERROR:
+			fprintf(stderr, "error: %d\n",
+				v->sd[v->rank + i].error);
+			break;
 		}
 	}
 	return;
@@ -57,15 +60,22 @@ static void set_value_atom_data(union value_data *dst, union value_data *src)
 	memcpy(dst, src, sizeof *dst);
 }
 
+static size_t alloc_size(Value v)
+{
+	return sizeof *v + sizeof v->sd[0] * v->acount;
+}
+
+static size_t used_size(Value v)
+{
+	return sizeof *v + sizeof v->sd[0] * (v->rank + v->ecount);
+}
+
 Value value_make_single(struct value_atom value)
 {
-	Value atom =
-	    mem_alloc(sizeof *atom); /* Singleton values are presized. */
-	assert(atom);		     /* TODO: Error handling */
-	atom->refcount = 1;
+	Value atom = mem_alloc(sizeof *atom); /* Singleton values presized. */
+	assert(atom);			      /* TODO: Error handling */
 	atom->rank = 0;
-	atom->ecount = 1;
-	atom->acount = 1;
+	atom->refcount = atom->ecount = atom->acount = 1;
 	atom->type = value.type;
 	set_value_atom_data(&atom->sd[0], &value.data);
 	return atom;
@@ -74,17 +84,13 @@ Value value_make_single(struct value_atom value)
 /* TODO: Put type and size inputs here. */
 Value value_make_vector(struct value_atom value)
 {
-	const size_t init_count = 10;
-	Value vec =
-	    mem_alloc(sizeof *vec + sizeof vec->sd[0] * (init_count + 1));
+	const size_t c_init = 10; /* Init count of 10. */
+	Value vec = mem_alloc(sizeof *vec + sizeof vec->sd[0] * (c_init + 1));
 	assert(vec); /* TODO: Error handling */
-	vec->refcount = 1;
-	vec->rank = 1;
-	vec->ecount = 1;
-	vec->acount = 1;
-	vec->esize = sizeof value;
+	vec->refcount = vec->rank = vec->sd[0].shape = 1;
+	vec->ecount = 1; /* Shape */
+	vec->acount = c_init;
 	vec->type = value.type;
-	vec->sd[0].shape = 1;
 	set_value_atom_data(&vec->sd[1], &value.data);
 	return vec;
 }
@@ -93,14 +99,17 @@ Value value_append(Value v, struct value_atom val)
 {
 	assert(v->type == val.type);
 	if (v->ecount == v->acount) {
-		Value n;
-		v->acount *= 2;
-		n = mem_realloc(v, sizeof *v +
-				       sizeof v->sd[0] * (v->acount + v->rank));
-		assert(n); /* TODO: Error handling. */
-		v = n;
+		Value n = mem_realloc(v, alloc_size(v) * 2 - sizeof *v);
+		if (n) {
+			v = n;
+		} else {
+			v->type = ERROR;
+			v->sd[v->rank + 1].error = MEM_ALLOC;
+			return v;
+		}
 	}
 	assert(v);
+	v->acount *= 2;
 	v->sd[v->rank - 1].shape++;
 	set_value_atom_data(&v->sd[v->rank - 1 + v->ecount++ + 1], &val.data);
 	return v;
@@ -124,12 +133,10 @@ void value_free(Value v)
 /* TODO: Fixme */
 char *value_stringify(Value v)
 {
-	const size_t UINT64_DIGITS = 20; /* log(2^64) / log(10) = 19.3 ~ 20. */
+	const size_t DIGITS = 20; /* log(2^64) / log(10) = 19.3 ~ 20. */
 	/* I.e. the maximum length of an integer printed in decimal. */
-	const size_t len =
-	    (UINT64_DIGITS + 1) * (v->ecount + 2) * (v->rank + 1);
-	/* ' ' between values, 2 '\n's between dimensions, and '\0' terminator.
-	 */
+	const size_t len = (DIGITS + 1) * (v->ecount + 2) * (v->rank + 1);
+	/* ' ' between values, 2 '\n's between dimensions, & '\0' terminator */
 	char *tmp = mem_alloc(len);
 	assert(tmp); /* TODO: Error handling */
 	size_t pos = 0;
@@ -155,23 +162,22 @@ static int prefixes_agree(Value a, Value w)
 /* Creates a Value with the same shape, type, and ecount as that given. */
 static Value copy_value_container(Value v)
 {
-	/* NOTE: This is actually oversizing the array for many types. */
-	Value cpy =
-	    mem_alloc(sizeof *cpy + sizeof v->sd[0] * (v->ecount + v->rank));
-	assert(cpy); /* TODO: Error handling */
+	Value cpy = mem_alloc(sizeof *cpy + used_size(v));
+	if (!cpy) {
+		struct value_atom err = {ERROR, {MEM_ALLOC}};
+		cpy = value_make_single(err);
+		assert(cpy); /* TODO: Error handling */
+		return cpy;
+	}
+	memcpy(cpy, v, sizeof *v + used_size(v));
 	cpy->refcount = 1;
-	cpy->rank = v->rank;
-	cpy->ecount = v->ecount;
-	cpy->acount = v->ecount;
-	cpy->type = v->type;
-	memcpy(&cpy->sd, &v->sd, sizeof v->sd[0] * v->rank);
 	return cpy;
 }
 
-typedef union value_data (*tmp_funcdef)(union value_data, union value_data);
+typedef union value_data (*value_op)(union value_data, union value_data);
 
 static void apply_binop(union value_data *res, union value_data *a,
-			union value_data *w, tmp_funcdef op, size_t cnt)
+			union value_data *w, value_op op, size_t cnt)
 {
 	for (size_t i = 0; i < cnt; ++i) {
 		res[i] = op(a[i], w[i]);
@@ -179,7 +185,7 @@ static void apply_binop(union value_data *res, union value_data *a,
 	return;
 }
 
-static Value binop(Value a, Value w, tmp_funcdef op)
+static Value binop(Value a, Value w, value_op op)
 {
 	Value res = copy_value_container(a);
 	assert(res); /* TODO: Error handling. */

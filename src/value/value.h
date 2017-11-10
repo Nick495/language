@@ -8,8 +8,8 @@
 
 typedef struct Value_ *Value;
 
-enum type { INTEGER, VECTOR, SYMBOL, FUNCTION } type;
-enum error_type { INVALID_ARGS };
+enum value_type { INTEGER, VECTOR, SYMBOL, FUNCTION, ERROR };
+enum error_type { INVALID_ARGS, MEM_ALLOC };
 union value_data {
 	size_t shape;
 	unsigned long integer;
@@ -24,7 +24,7 @@ union value_data {
 };
 
 struct value_atom {
-	enum type type;
+	enum value_type type;
 	union value_data data;
 };
 

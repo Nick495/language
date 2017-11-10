@@ -1,8 +1,8 @@
 #include "symtable/symtable.h"
 
 struct entry {
-	char *key;
-	Value value;
+	const char *key;
+	void *value;
 	/* 0 so it can be set with memset. */
 	enum { EMPTY = 0, DELETED, SET } status;
 };
@@ -32,14 +32,14 @@ static struct entry next(struct symtable *s, size_t *hash)
 }
 
 /* Inserts an entry with linear probing. */
-static size_t insert_entry(struct symtable *s, const char *key, Value v)
+static size_t insert_entry(struct symtable *s, const char *key, void *v)
 {
 	size_t hash = XXH64(key, strlen(key), s->seed);
 	struct entry e = s->entries[hash % s->cap];
 	while (e.status != EMPTY) {
 		e = next(s, &hash);
 	}
-	e.key = (char *)key;
+	e.key = key;
 	e.value = v;
 	return hash;
 }
@@ -52,18 +52,17 @@ static void symtable_expand(struct symtable *s)
 	s->entries = mem_alloc(sizeof *s->entries * (s->cap * 2));
 	assert(s->entries); /* TODO: Error handling. */
 	s->cap *= 2;
-	memset(s->entries, 0,
-	       sizeof *s->entries * s->cap); /* Empty by default */
+	memset(s->entries, 0, sizeof *s->entries * s->cap);
 	for (i = 0; i < old_cap; ++i) {
-		if (old_entries[i].status == SET) {
-			insert_entry(s, old_entries[i].key,
-				     old_entries[i].value);
+		if (old_entries[i].status != SET) {
+			continue;
 		}
+		insert_entry(s, old_entries[i].key, old_entries[i].value);
 	}
 	mem_dealloc(old_entries);
 }
 
-size_t symtable_push(struct symtable *s, const char *key, Value v)
+size_t symtable_push(struct symtable *s, const char *key, void *v)
 {
 	if (s->use >= (s->cap * 3) / 4) {
 		symtable_expand(s);
@@ -71,7 +70,7 @@ size_t symtable_push(struct symtable *s, const char *key, Value v)
 	return insert_entry(s, key, v);
 }
 
-Value symtable_find(struct symtable *s, const char *key)
+void *symtable_find(struct symtable *s, const char *key)
 {
 	size_t hash = XXH64(key, strlen(key), s->seed);
 	struct entry e = s->entries[hash % s->cap];

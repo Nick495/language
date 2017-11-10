@@ -125,7 +125,8 @@ ASTNode SingleOrVector(struct Parser *p, token t, enum token_type expected_type)
 {
 	ASTNode res;
 	enum type value_type = token_to_value_type(expected_type);
-	if (get_type(peek(p)) != expected_type) {
+	if (get_type(peek(p)) !=
+	    expected_type) { /* No followup, so a single. */
 		res = make_single(get_value(t), value_type);
 		token_free(t);
 		return res;
