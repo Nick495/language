@@ -28,8 +28,7 @@ struct value_atom {
 	union value_data data;
 };
 
-Value value_make_single(struct value_atom value);
-Value value_make_vector(struct value_atom value);
+Value value_make(struct value_atom value, size_t init_size);
 Value value_append(Value v, struct value_atom val);
 
 Value value_add(Value a, Value w);

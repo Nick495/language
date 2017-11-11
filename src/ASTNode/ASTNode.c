@@ -3,8 +3,7 @@
 struct ASTNode_ {
 	enum { AST_BINOP,
 	       AST_UNOP,
-	       AST_NUMBER,
-	       AST_VECTOR,
+	       AST_VALUE,
 	       AST_ASSIGNMENT,
 	       AST_STATEMENT_LIST } type;
 	union {
@@ -17,8 +16,8 @@ struct ASTNode_ {
 			const char *monad;
 			ASTNode rest;
 		};
-		Value value; /* Number, vector */
-		struct {
+		Value value; /* Value */
+		struct {     /* Assignment */
 			ASTNode lvalue;
 			ASTNode rvalue;
 		};
@@ -38,108 +37,6 @@ static ASTNode make_node(void)
 	return n;
 }
 
-/* Returns a char* of the node to string, caller must free. */
-char *Stringify(ASTNode n)
-{
-	char *res = NULL;
-	switch (n->type) {
-	case AST_BINOP: {
-		char *left = Stringify(n->left), *right = Stringify(n->right);
-		size_t llen = strlen(left), dlen = strlen(n->dyad),
-		       rlen = strlen(right);
-		/* Add room for two spaces and a null terminator. */
-		res = malloc((llen + dlen + rlen + 2 + 1) * sizeof *res);
-		assert(res); /* TODO: Error handling. */
-		sprintf(res, "%s %s %s", left, n->dyad, right);
-		free(left);
-		free(right);
-		break;
-	}
-	case AST_UNOP: {
-		char *rest = Stringify(n->rest);
-		/* Add room for a space and a null terminator. */
-		res = malloc((strlen(n->monad) + strlen(rest) + 1 + 1) *
-			     sizeof *res);
-		assert(res); /* TODO: Error handling. */
-		sprintf(res, "%s %s", n->monad, rest);
-		free(rest);
-		break;
-	}
-	case AST_NUMBER: /* FALLTHRU */
-	case AST_VECTOR:
-		res = value_stringify(n->value);
-		break;
-	case AST_STATEMENT_LIST: {
-		char **strs =
-		    mem_alloc(sizeof *strs * n->use); /* TODO: Error h */
-		size_t i, total_len = 0;
-		assert(strs);
-		for (i = 0; i < n->use; ++i) {
-			strs[i] = Stringify(n->siblings[i]);
-			total_len += strlen(strs[i]);
-		}
-		/* Include space for separators "<" + "> " and '\0' */
-		res = malloc(sizeof *res * (total_len + 3 * n->use + 1));
-		assert(res); /* TODO: Error handling. */
-		total_len = 0;
-		for (i = 0; i < n->use; ++i) {
-			memcpy(res + total_len, "<", strlen("<"));
-			total_len += strlen("<");
-			memcpy(res + total_len, strs[i], strlen(strs[i]));
-			total_len += strlen(strs[i]);
-			memcpy(res + total_len, "> ", strlen("> "));
-			total_len += strlen("> ");
-		}
-		res[total_len + 3 * n->use] = '\0';
-		for (i = 0; i < n->use; ++i) {
-			mem_dealloc(strs[i]);
-		}
-		mem_dealloc(strs);
-		break;
-	}
-	case AST_ASSIGNMENT: {
-		char *lv = Stringify(n->lvalue), *rv = Stringify(n->rvalue);
-		size_t lvlen = strlen(lv), rvlen = strlen(rv),
-		       slen = strlen("> := <");
-		res = malloc(1 + lvlen + slen + rvlen + 1 + 1);
-		assert(res); /* TODO: Error handling. */
-		sprintf(res, "<%s> := <%s>", lv, rv);
-		free(lv);
-		free(rv);
-		break;
-	}
-	default:
-		return NULL;
-	}
-	assert(res);
-	return res;
-}
-
-Value Eval(ASTNode n)
-{
-	Value res;
-	switch (n->type) {
-	case AST_BINOP: {
-		Value left = Eval(n->left), right = Eval(n->right);
-		res = value_add(left, right);
-		value_free(left);
-		value_free(right);
-		return res;
-	}
-	case AST_UNOP:
-		return Eval(n->rest);
-	case AST_ASSIGNMENT:
-		return Eval(n->rvalue);
-	case AST_NUMBER: /* FALLTHRU */
-	case AST_VECTOR:
-		return value_reference(n->value);
-	case AST_STATEMENT_LIST:
-		return Eval(n->siblings[n->use - 1]);
-	}
-	assert(0);
-	return NULL;
-}
-
 void free_node(ASTNode n)
 {
 	if (!n) {
@@ -150,8 +47,7 @@ void free_node(ASTNode n)
 		free_node(n->left);
 		free_node(n->right);
 		break;
-	case AST_NUMBER: /* FALLTHRU */
-	case AST_VECTOR:
+	case AST_VALUE:
 		value_free(n->value);
 		break;
 	case AST_UNOP:
@@ -201,30 +97,20 @@ static unsigned long parse_num(const char *text)
 	return strtol(text, NULL, 10);
 }
 
-ASTNode make_single(const char *val, enum value_type type)
+ASTNode make_value(const char *val, enum value_type type, size_t init_size)
 {
 	ASTNode n = make_node();
 	struct value_atom atom = {type, {parse_num(val)}};
 	assert(n); /* TODO: Error handling */
-	n->type = AST_NUMBER;
-	n->value = value_make_single(atom);
-	return n;
-}
-
-ASTNode make_vector(const char *val, enum value_type type)
-{
-	ASTNode n = make_node();
-	struct value_atom atom = {type, {parse_num(val)}};
-	assert(n); /* TODO: Error handling */
-	n->type = AST_VECTOR;
-	n->value = value_make_vector(atom);
+	n->type = AST_VALUE;
+	n->value = value_make(atom, init_size);
 	return n;
 }
 
 ASTNode extend_vector(ASTNode vec, const char *val, enum value_type type)
 {
 	struct value_atom atom = {type, {parse_num(val)}};
-	assert(vec->type == AST_VECTOR);
+	assert(vec->type == AST_VALUE);
 	vec->value = value_append(vec->value, atom);
 	return vec;
 }
@@ -264,4 +150,104 @@ ASTNode extend_statement_list(ASTNode list, ASTNode stmt)
 	list->cap *= 2;
 	list->siblings = new;
 	return list;
+}
+
+Value Eval(ASTNode n)
+{
+	Value res;
+	switch (n->type) {
+	case AST_BINOP: {
+		Value left = Eval(n->left), right = Eval(n->right);
+		res = value_add(left, right);
+		value_free(left);
+		value_free(right);
+		return res;
+	}
+	case AST_UNOP:
+		return Eval(n->rest);
+	case AST_ASSIGNMENT:
+		return Eval(n->rvalue);
+	case AST_VALUE:
+		return value_reference(n->value);
+	case AST_STATEMENT_LIST:
+		return Eval(n->siblings[n->use - 1]);
+	}
+	assert(0);
+	return NULL;
+}
+
+/* Returns a char* of the node to string, caller must free. */
+char *Stringify(ASTNode n)
+{
+	char *res = NULL;
+	switch (n->type) {
+	case AST_BINOP: {
+		char *left = Stringify(n->left), *right = Stringify(n->right);
+		size_t llen = strlen(left), dlen = strlen(n->dyad),
+		       rlen = strlen(right);
+		/* Add room for two spaces and a null terminator. */
+		res = malloc((llen + dlen + rlen + 2 + 1) * sizeof *res);
+		assert(res); /* TODO: Error handling. */
+		sprintf(res, "%s %s %s", left, n->dyad, right);
+		free(left);
+		free(right);
+		break;
+	}
+	case AST_UNOP: {
+		char *rest = Stringify(n->rest);
+		/* Add room for a space and a null terminator. */
+		res = malloc((strlen(n->monad) + strlen(rest) + 1 + 1) *
+			     sizeof *res);
+		assert(res); /* TODO: Error handling. */
+		sprintf(res, "%s %s", n->monad, rest);
+		free(rest);
+		break;
+	}
+	case AST_VALUE: /* FALLTHRU */
+		res = value_stringify(n->value);
+		break;
+	case AST_STATEMENT_LIST: {
+		char **strs =
+		    mem_alloc(sizeof *strs * n->use); /* TODO: Error h */
+		size_t i, total_len = 0;
+		assert(strs);
+		for (i = 0; i < n->use; ++i) {
+			strs[i] = Stringify(n->siblings[i]);
+			total_len += strlen(strs[i]);
+		}
+		/* Include space for separators "<" + "> " and '\0' */
+		res = malloc(sizeof *res * (total_len + 3 * n->use + 1));
+		assert(res); /* TODO: Error handling. */
+		total_len = 0;
+		for (i = 0; i < n->use; ++i) {
+			memcpy(res + total_len, "<", strlen("<"));
+			total_len += strlen("<");
+			memcpy(res + total_len, strs[i], strlen(strs[i]));
+			total_len += strlen(strs[i]);
+			memcpy(res + total_len, "> ", strlen("> "));
+			total_len += strlen("> ");
+		}
+		res[total_len + 3 * n->use] = '\0';
+		for (i = 0; i < n->use; ++i) {
+			mem_dealloc(strs[i]);
+		}
+		mem_dealloc(strs);
+		break;
+	}
+	case AST_ASSIGNMENT: {
+		char *lv = Stringify(n->lvalue), *rv = Stringify(n->rvalue);
+		size_t lvlen = strlen(lv), rvlen = strlen(rv),
+		       slen = strlen("> := <");
+		res = malloc(1 + lvlen + slen + rvlen + 1 + 1);
+		assert(res); /* TODO: Error handling. */
+		sprintf(res, "<%s> := <%s>", lv, rv);
+		free(lv);
+		free(rv);
+		break;
+	}
+	default:
+		return NULL;
+	}
+	assert(res);
+	return res;
 }

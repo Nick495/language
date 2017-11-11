@@ -20,6 +20,15 @@ static void print_value(Value v)
 	case INTEGER:
 		fprintf(stderr, "type: integer\n");
 		break;
+	case SYMBOL:
+		fprintf(stderr, "type: symbol\n");
+		break;
+	case FUNCTION:
+		fprintf(stderr, "type: function\n");
+		break;
+	case ERROR:
+		fprintf(stderr, "type: error\n");
+		break;
 	default:
 		fprintf(stderr, "type: invalid\n");
 		break;
@@ -70,29 +79,26 @@ static size_t used_size(Value v)
 	return sizeof *v + sizeof v->sd[0] * (v->rank + v->ecount);
 }
 
-Value value_make_single(struct value_atom value)
+/* TODO: Put type input here. */
+Value value_make(struct value_atom value, size_t init_size)
 {
-	Value atom = mem_alloc(sizeof *atom); /* Singleton values presized. */
-	assert(atom);			      /* TODO: Error handling */
-	atom->rank = 0;
-	atom->refcount = atom->ecount = atom->acount = 1;
-	atom->type = value.type;
-	set_value_atom_data(&atom->sd[0], &value.data);
-	return atom;
-}
-
-/* TODO: Put type and size inputs here. */
-Value value_make_vector(struct value_atom value)
-{
-	const size_t c_init = 10; /* Init count of 10. */
-	Value vec = mem_alloc(sizeof *vec + sizeof vec->sd[0] * (c_init + 1));
-	assert(vec); /* TODO: Error handling */
-	vec->refcount = vec->rank = vec->sd[0].shape = 1;
-	vec->ecount = 1; /* Shape */
-	vec->acount = c_init;
-	vec->type = value.type;
-	set_value_atom_data(&vec->sd[1], &value.data);
-	return vec;
+	Value v;
+	if (init_size == 1) {
+		v = mem_alloc(sizeof *v); /* Singleton values presized. */
+	} else {
+		v = mem_alloc(sizeof *v + sizeof v->sd[0] * (init_size + 1));
+	}
+	assert(v); /* TODO: Error handling */
+	if (init_size == 1) {
+		v->rank = 0;
+	} else {
+		v->rank = 1;
+		v->sd[0].shape = 1;
+	}
+	v->refcount = v->ecount = v->acount = 1;
+	v->type = value.type;
+	set_value_atom_data(&v->sd[v->rank], &value.data);
+	return v;
 }
 
 Value value_append(Value v, struct value_atom val)
@@ -104,7 +110,9 @@ Value value_append(Value v, struct value_atom val)
 			v = n;
 		} else {
 			v->type = ERROR;
-			v->sd[v->rank + 1].error = MEM_ALLOC;
+			v->rank = 1;
+			v->sd[0] = 1;
+			v->sd[v->rank].error = MEM_ALLOC;
 			return v;
 		}
 	}
@@ -165,7 +173,7 @@ static Value copy_value_container(Value v)
 	Value cpy = mem_alloc(sizeof *cpy + used_size(v));
 	if (!cpy) {
 		struct value_atom err = {ERROR, {MEM_ALLOC}};
-		cpy = value_make_single(err);
+		cpy = value_make(err, 1);
 		assert(cpy); /* TODO: Error handling */
 		return cpy;
 	}

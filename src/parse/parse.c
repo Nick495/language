@@ -84,7 +84,7 @@ static void assign(struct Parser *p, const char *name, Value value)
 	symtable_push(p->environment.symbols, name, value);
 }
 
-static enum type token_to_value_type(enum token_type token_type)
+static enum value_type token_to_value_type(enum token_type token_type)
 {
 	switch (token_type) {
 	case TOKEN_NUMBER:
@@ -124,14 +124,14 @@ ASTNode Expr(struct Parser *p, token t)
 ASTNode SingleOrVector(struct Parser *p, token t, enum token_type expected_type)
 {
 	ASTNode res;
-	enum type value_type = token_to_value_type(expected_type);
+	enum value_type value_type = token_to_value_type(expected_type);
 	if (get_type(peek(p)) !=
 	    expected_type) { /* No followup, so a single. */
-		res = make_single(get_value(t), value_type);
+		res = make_value(get_value(t), value_type, 1);
 		token_free(t);
 		return res;
 	}
-	res = make_vector(get_value(t), value_type);
+	res = make_value(get_value(t), value_type, 10);
 	token_free(t);
 	while (get_type(peek(p)) == expected_type) {
 		t = next(p);

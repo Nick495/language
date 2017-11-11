@@ -18,8 +18,7 @@ void free_node(ASTNode n);
 ASTNode make_binop(ASTNode left, const char *dyad, ASTNode right);
 ASTNode make_unop(const char *monad, ASTNode right);
 
-ASTNode make_single(const char *val, enum value_type type);
-ASTNode make_vector(const char *val, enum value_type type);
+ASTNode make_value(const char *val, enum value_type type, size_t init_count);
 ASTNode extend_vector(ASTNode vec, const char *val, enum value_type type);
 ASTNode make_statement(ASTNode e);
 ASTNode make_assignment(ASTNode lvalue, ASTNode rvalue);

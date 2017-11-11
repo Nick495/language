@@ -30,7 +30,7 @@ executables: parse print
 
 parse: $(BUILD)
 	$(CC) $(CFLAGS) -o $(BIN)/parse \
-		$(OBJ)/parse_driver.o $(OBJ)/parse.o $(OBJ)/ASTNode.o $(OBJ)/mem.o \
+		$(OBJ)/parse_driver.o $(OBJ)/parse.o $(OBJ)/ASTNode.o $(OBJ)/mem.o\
 		$(OBJ)/value.o $(OBJ)/token.o $(OBJ)/lex.o $(OBJ)/symtable.o \
 		$(LIBOBJ)/xxhash.o
 
