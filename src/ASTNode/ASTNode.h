@@ -9,19 +9,43 @@
 #include <string.h>      /* strerror() */
 
 typedef struct ASTNode_ *ASTNode;
+struct ASTNode_ {
+	enum { AST_BINOP,
+	       AST_UNOP,
+	       AST_VALUE,
+	       AST_ASSIGNMENT,
+	       AST_STATEMENT_LIST } type;
+	union {
+		struct { /* Binop */
+			ASTNode left;
+			const char *dyad;
+			ASTNode right;
+		};
+		struct { /* Unop */
+			const char *monad;
+			ASTNode rest;
+		};
+		Value value; /* Value */
+		struct {     /* Assignment */
+			ASTNode lvalue;
+			ASTNode rvalue;
+		};
+		struct { /* Statement list */
+			size_t use;
+			size_t cap;
+			ASTNode *siblings;
+		};
+	};
+};
+
+struct sizedString {
+	size_t len;
+	char *text;
+};
 
 /* Returns a char* of the node to string, caller must free. */
-char *Stringify(ASTNode n);
+struct sizedString Stringify(ASTNode n);
 Value Eval(ASTNode n);
 void free_node(ASTNode n);
 
-ASTNode make_binop(ASTNode left, const char *dyad, ASTNode right);
-ASTNode make_unop(const char *monad, ASTNode right);
-
-ASTNode make_value(const char *val, enum value_type type, size_t init_count);
-ASTNode extend_vector(ASTNode vec, const char *val, enum value_type type);
-ASTNode make_statement(ASTNode e);
-ASTNode make_assignment(ASTNode lvalue, ASTNode rvalue);
-ASTNode make_statement_list();
-ASTNode extend_statement_list(ASTNode list, ASTNode stmt);
 #endif

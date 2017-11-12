@@ -111,7 +111,7 @@ Value value_append(Value v, struct value_atom val)
 		} else {
 			v->type = ERROR;
 			v->rank = 1;
-			v->sd[0] = 1;
+			v->sd[0].shape = 1;
 			v->sd[v->rank].error = MEM_ALLOC;
 			return v;
 		}

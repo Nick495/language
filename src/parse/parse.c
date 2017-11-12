@@ -14,6 +14,14 @@ struct Parser {
 	char *input_name;
 };
 
+/* Uniform allocation (Can make a pool allocator). */
+static ASTNode make_node(void)
+{
+	ASTNode n = mem_alloc(sizeof *n);
+	assert(n); /* TODO: Error handling */
+	return n;
+}
+
 struct Parser *parser_make()
 {
 	struct Parser *p = mem_alloc(sizeof *p + token_size() * LOOKAHEAD);
@@ -98,13 +106,24 @@ static enum value_type token_to_value_type(enum token_type token_type)
 	}
 }
 
-ASTNode Expr(struct Parser *, token);
-ASTNode Op(struct Parser *, token);
+static ASTNode Expr(struct Parser *, token);
+static ASTNode Op(struct Parser *, token);
+
+static ASTNode make_binop(ASTNode left, const char *dyad, ASTNode right)
+{
+	ASTNode n = make_node();
+	assert(n); /* TODO: Error handling. */
+	n->type = AST_BINOP;
+	n->left = left;
+	n->dyad = dyad;
+	n->right = right;
+	return n;
+}
 
 //	expr
 //		operand
 //		operand binop expr
-ASTNode Expr(struct Parser *p, token t)
+static ASTNode Expr(struct Parser *p, token t)
 {
 	ASTNode expr = Op(p, t);
 	switch (get_type(peek(p))) {
@@ -120,8 +139,33 @@ ASTNode Expr(struct Parser *p, token t)
 	}
 }
 
-/* Note, can seperate into two functions. */
-ASTNode SingleOrVector(struct Parser *p, token t, enum token_type expected_type)
+/* TODO: Floating point, other primitive types. */
+static unsigned long parse_num(const char *text)
+{
+	return strtol(text, NULL, 10);
+}
+
+static ASTNode make_value(const char *val, enum value_type type,
+			  size_t init_size)
+{
+	ASTNode n = make_node();
+	struct value_atom atom = {type, {parse_num(val)}};
+	assert(n); /* TODO: Error handling */
+	n->type = AST_VALUE;
+	n->value = value_make(atom, init_size);
+	return n;
+}
+
+static ASTNode extend_vector(ASTNode vec, const char *val, enum value_type type)
+{
+	struct value_atom atom = {type, {parse_num(val)}};
+	assert(vec->type == AST_VALUE);
+	vec->value = value_append(vec->value, atom);
+	return vec;
+}
+
+static ASTNode SingleOrVector(struct Parser *p, token t,
+			      enum token_type expected_type)
 {
 	ASTNode res;
 	enum value_type value_type = token_to_value_type(expected_type);
@@ -141,6 +185,16 @@ ASTNode SingleOrVector(struct Parser *p, token t, enum token_type expected_type)
 	return res;
 }
 
+static ASTNode make_unop(const char *monad, ASTNode right)
+{
+	ASTNode n = make_node();
+	assert(n); /* TODO: Error handling. */
+	n->type = AST_UNOP;
+	n->monad = monad;
+	n->right = right;
+	return n;
+}
+
 // Grammar from Rob Pike's talk
 //	operand
 //		( Expr )
@@ -148,7 +202,7 @@ ASTNode SingleOrVector(struct Parser *p, token t, enum token_type expected_type)
 //		operand
 //		number
 //		unop Expr
-ASTNode Op(struct Parser *p, token t)
+static ASTNode Op(struct Parser *p, token t)
 {
 	ASTNode op;
 	switch (get_type(t)) {
@@ -180,10 +234,20 @@ ASTNode Op(struct Parser *p, token t)
 	return op;
 }
 
+static ASTNode make_assignment(ASTNode lvalue, ASTNode rvalue)
+{
+	ASTNode n = make_node();
+	assert(n); /* TODO: Error handling */
+	n->type = AST_ASSIGNMENT;
+	n->lvalue = lvalue;
+	n->rvalue = rvalue;
+	return n;
+}
+
 //	statement
 //		Expr ;
 //		let Expr := Expr ; TODO
-ASTNode Statement(struct Parser *p, token t)
+static ASTNode Statement(struct Parser *p, token t)
 {
 	ASTNode res;
 	switch (get_type(t)) {
@@ -211,9 +275,36 @@ ASTNode Statement(struct Parser *p, token t)
 	return res;
 }
 
+static ASTNode make_statement_list()
+{
+	ASTNode n = make_node();
+	assert(n); /* TODO: Error handling */
+	n->type = AST_STATEMENT_LIST;
+	n->use = 0;
+	n->cap = 10;
+	n->siblings = mem_alloc(sizeof *n->siblings * n->cap);
+	assert(n->siblings); /* TODO: Error handling. */
+	return n;
+}
+
+static ASTNode extend_statement_list(ASTNode list, ASTNode stmt)
+{
+	list->siblings[list->use++] = stmt;
+	if (list->use < list->cap) {
+		return list;
+	}
+
+	ASTNode *new = NULL;
+	new = mem_realloc(list->siblings, sizeof *new * list->cap * 2);
+	assert(new); /* TODO: Error handling. */
+	list->cap *= 2;
+	list->siblings = new;
+	return list;
+}
+
 //	statementList
 //		statement...
-ASTNode StatementList(struct Parser *p, token t)
+static ASTNode StatementList(struct Parser *p, token t)
 {
 	ASTNode res = make_statement_list(), stmt;
 	while (get_type(t) != TOKEN_EOF) {

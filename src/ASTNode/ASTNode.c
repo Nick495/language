@@ -1,42 +1,5 @@
 #include "ASTNode.h"
 
-struct ASTNode_ {
-	enum { AST_BINOP,
-	       AST_UNOP,
-	       AST_VALUE,
-	       AST_ASSIGNMENT,
-	       AST_STATEMENT_LIST } type;
-	union {
-		struct { /* Binop */
-			ASTNode left;
-			const char *dyad;
-			ASTNode right;
-		};
-		struct { /* Unop */
-			const char *monad;
-			ASTNode rest;
-		};
-		Value value; /* Value */
-		struct {     /* Assignment */
-			ASTNode lvalue;
-			ASTNode rvalue;
-		};
-		struct { /* Statement list */
-			size_t use;
-			size_t cap;
-			ASTNode *siblings;
-		};
-	};
-};
-
-/* Uniform allocation (Can make a pool allocator). */
-static ASTNode make_node(void)
-{
-	ASTNode n = mem_alloc(sizeof *n);
-	assert(n); /* TODO: Error handling */
-	return n;
-}
-
 void free_node(ASTNode n)
 {
 	if (!n) {
@@ -69,89 +32,6 @@ void free_node(ASTNode n)
 	free(n);
 }
 
-ASTNode make_binop(ASTNode left, const char *dyad, ASTNode right)
-{
-	ASTNode n = make_node();
-	assert(n); /* TODO: Error handling. */
-	n->type = AST_BINOP;
-	n->left = left;
-	n->dyad = dyad;
-	n->right = right;
-	return n;
-}
-
-ASTNode make_unop(const char *monad, ASTNode right)
-{
-	ASTNode n = make_node();
-	assert(n); /* TODO: Error handling. */
-	n->type = AST_UNOP;
-	n->monad = monad;
-	n->right = right;
-	return n;
-}
-
-/* TODO: Floating point, other primitive types. */
-/* TODO: Should this be in the parser instead? */
-static unsigned long parse_num(const char *text)
-{
-	return strtol(text, NULL, 10);
-}
-
-ASTNode make_value(const char *val, enum value_type type, size_t init_size)
-{
-	ASTNode n = make_node();
-	struct value_atom atom = {type, {parse_num(val)}};
-	assert(n); /* TODO: Error handling */
-	n->type = AST_VALUE;
-	n->value = value_make(atom, init_size);
-	return n;
-}
-
-ASTNode extend_vector(ASTNode vec, const char *val, enum value_type type)
-{
-	struct value_atom atom = {type, {parse_num(val)}};
-	assert(vec->type == AST_VALUE);
-	vec->value = value_append(vec->value, atom);
-	return vec;
-}
-
-ASTNode make_assignment(ASTNode lvalue, ASTNode rvalue)
-{
-	ASTNode n = make_node();
-	assert(n); /* TODO: Error handling */
-	n->type = AST_ASSIGNMENT;
-	n->lvalue = lvalue;
-	n->rvalue = rvalue;
-	return n;
-}
-
-ASTNode make_statement_list()
-{
-	ASTNode n = make_node();
-	assert(n); /* TODO: Error handling */
-	n->type = AST_STATEMENT_LIST;
-	n->use = 0;
-	n->cap = 10;
-	n->siblings = mem_alloc(sizeof *n->siblings * n->cap);
-	assert(n->siblings); /* TODO: Error handling. */
-	return n;
-}
-
-ASTNode extend_statement_list(ASTNode list, ASTNode stmt)
-{
-	list->siblings[list->use++] = stmt;
-	if (list->use < list->cap) {
-		return list;
-	}
-
-	ASTNode *new = NULL;
-	new = mem_realloc(list->siblings, sizeof *new * list->cap * 2);
-	assert(new); /* TODO: Error handling. */
-	list->cap *= 2;
-	list->siblings = new;
-	return list;
-}
-
 Value Eval(ASTNode n)
 {
 	Value res;
@@ -172,82 +52,116 @@ Value Eval(ASTNode n)
 	case AST_STATEMENT_LIST:
 		return Eval(n->siblings[n->use - 1]);
 	}
-	assert(0);
+	assert(0); /* Bail on bad type */
 	return NULL;
 }
 
 /* Returns a char* of the node to string, caller must free. */
-char *Stringify(ASTNode n)
+struct sizedString Stringify(ASTNode n)
 {
-	char *res = NULL;
+	struct sizedString res = {0, NULL};
 	switch (n->type) {
 	case AST_BINOP: {
-		char *left = Stringify(n->left), *right = Stringify(n->right);
-		size_t llen = strlen(left), dlen = strlen(n->dyad),
-		       rlen = strlen(right);
+		struct sizedString left = Stringify(n->left);
+		struct sizedString right = Stringify(n->right);
+		struct sizedString dyad = {strlen(n->dyad), n->dyad};
+		if (!left.len || !right.len) {
+			goto fail_stringify_binop;
+		}
 		/* Add room for two spaces and a null terminator. */
-		res = malloc((llen + dlen + rlen + 2 + 1) * sizeof *res);
-		assert(res); /* TODO: Error handling. */
-		sprintf(res, "%s %s %s", left, n->dyad, right);
-		free(left);
-		free(right);
+		res.len = (left.len + dyad.len + right.len + 2 + 1);
+		res.text = malloc(res.len * sizeof(*res.text));
+		if (!res.text) {
+			res.len = 0;
+			goto fail_stringify_binop;
+		}
+		sprintf(res.text, "%s %s %s", left.text, n->dyad, right.text);
+	fail_stringify_binop:
+		free(left.text);
+		free(right.text);
 		break;
 	}
 	case AST_UNOP: {
-		char *rest = Stringify(n->rest);
+		struct sizedString monad = {strlen(n->monad), n->monad};
+		struct sizedString rest = Stringify(n->rest);
+		if (!rest.len) {
+			goto fail_stringify_unop;
+		}
 		/* Add room for a space and a null terminator. */
-		res = malloc((strlen(n->monad) + strlen(rest) + 1 + 1) *
-			     sizeof *res);
-		assert(res); /* TODO: Error handling. */
-		sprintf(res, "%s %s", n->monad, rest);
-		free(rest);
+		res.len = monad.len + rest.len + 2;
+		res.text = malloc(res.len * sizeof(*res.text));
+		if (!res.text) {
+			res.len = 0;
+			goto fail_stringify_unop;
+		}
+		sprintf(res.text, "%s %s", n->monad, rest.text);
+	fail_stringify_unop:
+		free(rest.text);
 		break;
 	}
-	case AST_VALUE: /* FALLTHRU */
-		res = value_stringify(n->value);
+	case AST_VALUE: {
+		char *str = value_stringify(n->value);
+		res.len = strlen(str);
+		res.text = str;
 		break;
+	}
 	case AST_STATEMENT_LIST: {
-		char **strs =
-		    mem_alloc(sizeof *strs * n->use); /* TODO: Error h */
-		size_t i, total_len = 0;
-		assert(strs);
-		for (i = 0; i < n->use; ++i) {
+		size_t i, used_strs = 0, total_len = 0;
+		struct sizedString *strs = malloc(sizeof *strs * n->use);
+		if (!strs) {
+			goto dealloc;
+		}
+		for (i = 0, used_strs = 0; i < n->use; ++i, ++used_strs) {
 			strs[i] = Stringify(n->siblings[i]);
-			total_len += strlen(strs[i]);
+			if (!strs[i].len) {
+				goto dealloc;
+			}
+			total_len += strs[i].len;
 		}
 		/* Include space for separators "<" + "> " and '\0' */
-		res = malloc(sizeof *res * (total_len + 3 * n->use + 1));
-		assert(res); /* TODO: Error handling. */
-		total_len = 0;
-		for (i = 0; i < n->use; ++i) {
-			memcpy(res + total_len, "<", strlen("<"));
+		res.len = total_len + 3 * n->use + 1;
+		res.text = malloc(res.len * sizeof(*res.text));
+		if (!res.text) {
+			goto dealloc;
+		}
+		for (i = 0, total_len = 0; i < n->use; ++i) {
+			memcpy(res.text + total_len, "<", strlen("<"));
 			total_len += strlen("<");
-			memcpy(res + total_len, strs[i], strlen(strs[i]));
-			total_len += strlen(strs[i]);
-			memcpy(res + total_len, "> ", strlen("> "));
+			memcpy(res.text + total_len, strs[i].text, strs[i].len);
+			total_len += strs[i].len;
+			memcpy(res.text + total_len, "> ", strlen("> "));
 			total_len += strlen("> ");
 		}
-		res[total_len + 3 * n->use] = '\0';
-		for (i = 0; i < n->use; ++i) {
-			mem_dealloc(strs[i]);
+		res.text[total_len + 3 * n->use] = '\0';
+	dealloc:
+		for (i = 0; i < used_strs; ++i) {
+			free(strs[i].text);
 		}
-		mem_dealloc(strs);
+		free(strs);
 		break;
 	}
 	case AST_ASSIGNMENT: {
-		char *lv = Stringify(n->lvalue), *rv = Stringify(n->rvalue);
-		size_t lvlen = strlen(lv), rvlen = strlen(rv),
-		       slen = strlen("> := <");
-		res = malloc(1 + lvlen + slen + rvlen + 1 + 1);
-		assert(res); /* TODO: Error handling. */
-		sprintf(res, "<%s> := <%s>", lv, rv);
-		free(lv);
-		free(rv);
+		struct sizedString left = Stringify(n->lvalue);
+		struct sizedString right = Stringify(n->rvalue);
+		size_t slen = strlen("> := <");
+		if (!left.len || !right.len) {
+			goto fail_stringify_assignment;
+		}
+		res.len = 1 + left.len + slen + right.len + 2;
+		res.text = malloc(res.len * sizeof(*res.text));
+		if (!res.text) {
+			res.len = 0;
+			goto fail_stringify_assignment;
+		}
+		sprintf(res.text, "<%s> := <%s>", left.text, right.text);
+
+	fail_stringify_assignment:
+		free(left.text);
+		free(right.text);
 		break;
 	}
 	default:
-		return NULL;
+		break;
 	}
-	assert(res);
 	return res;
 }
