@@ -10,7 +10,7 @@ export SRC = $(PWD)/src
 export WEBOBJ= $(PWD)/webobj
 export WSM = $(PWD)/bin/wsm
 
-export CFLAGS = -O2 -g -Wall -Wextra -pedantic -std=c11 -I $(SRC) -I $(HEADERS)
+export CFLAGS = -g -O3 -Wall -Wextra -fsanitize=undefined -pedantic -std=c11 -I $(SRC) -I $(HEADERS)
 export VPATH = $(OBJ):$(WEBOBJ):$(BIN)
 
 .PHONY: directories $(BUILD) clean
@@ -28,12 +28,12 @@ directories:
 
 executables: parse print
 
-parse: $(BUILD)
+parse: $(BUILD) $(OBJ)/parse_driver.o
 	$(CC) $(CFLAGS) -o $(BIN)/parse \
 		$(OBJ)/parse_driver.o $(OBJ)/parse.o $(OBJ)/ASTNode.o $(OBJ)/mem.o\
 		$(OBJ)/value.o $(OBJ)/token.o $(OBJ)/lex.o $(OBJ)/symtable.o \
 		$(LIBOBJ)/xxhash.o
 
-print: $(BUILD)
+print: $(BUILD) $(OBJ)/print_driver.o
 	$(CC) $(CFLAGS) -o $(BIN)/print \
 		$(OBJ)/print_driver.o $(OBJ)/token.o $(OBJ)/lex.o $(OBJ)/mem.o

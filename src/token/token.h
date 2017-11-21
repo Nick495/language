@@ -20,6 +20,12 @@ enum token_type {
 	TOKEN_TYPE_COUNT /* NOT A REAL TOKEN TYPE, merely a count of them. */
 };
 
+struct token_ {		      /* 28 or 32 depending on alignment */
+	size_t len;	   /* 08 */
+	size_t off;	   /* 16 */
+	const char *src;      /* 24 */
+	enum token_type type; /* 28 */
+};
 typedef struct token_ *token;
 
 token token_make(enum token_type type, const char *src, size_t len, size_t off,

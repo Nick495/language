@@ -1,18 +1,30 @@
 Things to do to improve the interpreter.
 
 Make a hashtable implementation for environments / symbols.
-	- xxhash is a fast, cryptographically insecure way to do so.
-	- closed hashing, with <50% occupancy is pretty fast.
+	- Need to refactor hashtable to use pool allocator
+		o Stable allocations means we can just store pointers in AST
+	- Need to parser functions to pull symbols out.
+
 Add error handling through error tokens & parser errors.
-	- Preallocate error strings (particularly for error tokens in lexer)
-		x Out of memory errors can be handled gracefully / at all.
+	- Lexer now handles errors gracefully.
+	- Need to add additional error handling code in parser.
+		X Refactor mem_alloc() to use a pool allocator
+			o Partially done, need to separate pool and slab allocators.
+			o Add token to ASTNode for pool allocation purposes.
+		X Preallocate an out of memory error node
+			o OOM error is handled at init with this setup.
+			o Define a macro that bubbles error node from mem_alloc()
+
 Begin implementing a standard library for the APL.
-	- Start with material used in J, tryapl.org.
+	- Implement the functions from APL's game of life first.
+
+Implement parallelism:
+	- (Task?) Throw each operation onto a thread.
+	- (Data?) Throw each block (size?) of array elements on a thread.
+
+(Likely after senior project):
 Make a REPL.
 	- editline (BSD licensed).
 	- Network the REPL. (unREPL from Clojure is a good example).
 		x Make a protocol for the REPL.
 		x Ensure it works in the webassembly environment.
-Implement parallelism:
-	- (Task?) Throw each operation onto a thread.
-	- (Data?) Throw each block (size?) of array elements on a thread.

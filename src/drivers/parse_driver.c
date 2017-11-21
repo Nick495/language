@@ -32,27 +32,35 @@ void darray_free(struct darray *d) { free(d->str); }
 int main(void)
 {
 	int c;
-	struct Parser *p = parser_make();
+	Vm vm = value_make_vm();
+	struct Parser *p = parser_make(vm);
 	struct darray buffer = make_darray();
 	char *res;
+	/* FILE *f = fopen("stdin", "r"); */
+	FILE *f = stdin;
 	ASTNode tree = NULL;
 	Value val = NULL;
 	assert(p);
+	assert(vm);
+	assert(f);
+	flockfile(f);
 
-	while ((c = getchar_unlocked()) != EOF) {
+	while ((c = getc_unlocked(f)) != EOF) {
 		darray_push(&buffer, c);
 	}
 	darray_push(&buffer, '\0');
 	assert(strlen(buffer.str) == buffer.use - 1);
+	funlockfile(f);
 
 	tree = parse(p, buffer.str, "stdin");
-	val = Eval(tree);
+	val = Eval(tree, vm);
 	res = value_stringify(val);
 	printf("%s\n", res);
 
 	free(res);
-	value_free(val);
-	free_node(tree);
+	value_free(vm, val);
+	parser_free_ast(p, tree);
+	value_free_vm(vm);
 	darray_free(&buffer);
 	parser_free(p);
 }

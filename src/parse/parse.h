@@ -10,6 +10,7 @@
 #include <string.h>	    /* strerror() */
 #include <unistd.h>	    /* read() */
 
-struct Parser *parser_make();
+struct Parser *parser_make(Vm vm);
 ASTNode parse(struct Parser *p, char *in, char *in_name);
+void parser_free_ast(struct Parser *p, ASTNode n);
 void parser_free(struct Parser *p);

@@ -22,7 +22,7 @@ struct lexer {		      /* Cumulative size in bytes */
 
 struct lexer *lexer_make()
 {
-	struct lexer *l = mem_alloc(sizeof *l);
+	struct lexer *l = malloc(sizeof *l);
 	assert(l); /* TODO: Error handling */
 	return l;
 }
@@ -54,8 +54,15 @@ token lex_token(struct lexer *l, token prev)
 	return l->holder;
 }
 
+#define buflen 100
 static void emit_token(struct lexer *l, enum token_type type)
 {
+	/* DEBUG */
+	char scratch[buflen];
+	const size_t max_size =
+	    (l->cur - l->str) > (buflen - 1) ? (buflen - 1) : (l->cur - l->str);
+	memcpy(scratch, l->cur, max_size);
+	scratch[max_size] = '\0';
 	l->emitted = 1;
 	l->holder = token_make(type, l->str, l->pos - l->cur, l->cur - l->str,
 			       l->holder);
@@ -68,6 +75,11 @@ static void erase_lexemes(struct lexer *l) { l->cur = l->pos; }
 static char next(struct lexer *l)
 {
 	char c = *l->pos;
+	if (c == '\\') { /* Allow skipping newlines with '\ \n' form */
+		if (l->pos[1] == '\n') {
+			l->pos += 1; /* Skip both characters */
+		}
+	}
 	l->pos += 1;
 	return c;
 }

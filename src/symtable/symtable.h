@@ -6,7 +6,8 @@
 
 struct symtable;
 
-struct symtable *symtable_make();
-void symtable_free(struct symtable *s);
-size_t symtable_push(struct symtable *s, const char *key, void *v);
+struct symtable *symtable_make(struct slab_alloc *a);
+void symtable_free(struct symtable *s, struct slab_alloc *a);
+size_t symtable_push(struct symtable *s, struct slab_alloc *a, const char *key,
+		     void *v);
 void *symtable_find(struct symtable *s, const char *key);

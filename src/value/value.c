@@ -71,22 +71,27 @@ static void set_value_atom_data(union value_data *dst, union value_data *src)
 
 static size_t alloc_size(Value v)
 {
-	return sizeof *v + sizeof v->sd[0] * v->acount;
+	return sizeof(*v) + sizeof(v->sd[0]) * v->acount;
 }
 
 static size_t used_size(Value v)
 {
-	return sizeof *v + sizeof v->sd[0] * (v->rank + v->ecount);
+	if (v->rank == 0) { /* Singletons are presized */
+		return sizeof(*v);
+	}
+	return sizeof(*v) + sizeof(v->sd[0]) * (v->rank + v->ecount);
 }
 
 /* TODO: Put type input here. */
-Value value_make(struct value_atom value, size_t init_size)
+Value value_make(Vm vm, struct value_atom value, size_t init_size)
 {
 	Value v;
+	assert(vm);
 	if (init_size == 1) {
-		v = mem_alloc(sizeof *v); /* Singleton values presized. */
+		v = mem_pool_alloc(&vm->pool); /* Singleton values presized. */
 	} else {
-		v = mem_alloc(sizeof *v + sizeof v->sd[0] * (init_size + 1));
+		v = mem_slab_alloc(
+		    &vm->slab, sizeof(*v) + sizeof(v->sd[0]) * (init_size + 1));
 	}
 	assert(v); /* TODO: Error handling */
 	if (init_size == 1) {
@@ -95,17 +100,22 @@ Value value_make(struct value_atom value, size_t init_size)
 		v->rank = 1;
 		v->sd[0].shape = 1;
 	}
-	v->refcount = v->ecount = v->acount = 1;
+	v->refcount = v->ecount = 1;
+	v->acount = init_size;
 	v->type = value.type;
 	set_value_atom_data(&v->sd[v->rank], &value.data);
 	return v;
 }
 
-Value value_append(Value v, struct value_atom val)
+Value value_append(Vm vm, Value v, struct value_atom val)
 {
+	assert(vm);
+	assert(v);
 	assert(v->type == val.type);
 	if (v->ecount == v->acount) {
-		Value n = mem_realloc(v, alloc_size(v) * 2 - sizeof *v);
+		Value n =
+		    mem_slab_realloc(&vm->slab, alloc_size(v) * 2 - sizeof(*v),
+				     v, alloc_size(v));
 		if (n) {
 			v = n;
 		} else {
@@ -129,12 +139,18 @@ Value value_reference(Value v)
 	return v;
 }
 
-void value_free(Value v)
+void value_free(Vm vm, Value v)
 {
 	assert(v);
 	v->refcount--;
 	if (v->refcount == 0) {
-		mem_dealloc(v);
+		/*
+		 * We can treat all of these as pool allocations, since our slab
+		 * allocations are strictly bigger than our pool allocations.
+		 * It's a little microoptimization which lets us ignore whether
+		 * or not something is a slab or pool allocation.
+		*/
+		mem_pool_free(&vm->pool, v);
 	}
 }
 
@@ -145,7 +161,7 @@ char *value_stringify(Value v)
 	/* I.e. the maximum length of an integer printed in decimal. */
 	const size_t len = (DIGITS + 1) * (v->ecount + 2) * (v->rank + 1);
 	/* ' ' between values, 2 '\n's between dimensions, & '\0' terminator */
-	char *tmp = mem_alloc(len);
+	char *tmp = malloc(len);
 	assert(tmp); /* TODO: Error handling */
 	size_t pos = 0;
 	for (size_t i = 0; i < v->ecount; ++i) {
@@ -168,16 +184,20 @@ static int prefixes_agree(Value a, Value w)
 }
 
 /* Creates a Value with the same shape, type, and ecount as that given. */
-static Value copy_value_container(Value v)
+static Value copy_value_container(Vm vm, Value v)
 {
-	Value cpy = mem_alloc(sizeof *cpy + used_size(v));
+	Value cpy = malloc(used_size(v));
+	if (used_size(v) == sizeof(*v)) {
+		cpy = mem_pool_alloc(&vm->pool);
+	} else {
+		cpy = mem_slab_alloc(&vm->slab, used_size(v));
+	}
 	if (!cpy) {
-		struct value_atom err = {ERROR, {MEM_ALLOC}};
-		cpy = value_make(err, 1);
-		assert(cpy); /* TODO: Error handling */
 		return cpy;
 	}
-	memcpy(cpy, v, sizeof *v + used_size(v));
+	assert(v);
+	assert(cpy);
+	memcpy(cpy, v, used_size(v));
 	cpy->refcount = 1;
 	return cpy;
 }
@@ -193,9 +213,9 @@ static void apply_binop(union value_data *res, union value_data *a,
 	return;
 }
 
-static Value binop(Value a, Value w, value_op op)
+static Value binop(Vm vm, Value a, Value w, value_op op)
 {
-	Value res = copy_value_container(a);
+	Value res = copy_value_container(vm, a);
 	assert(res); /* TODO: Error handling. */
 	if (!prefixes_agree(a, w)) {
 		fprintf(stdout, "Error: mismatched shapes.\n");
@@ -217,13 +237,36 @@ static union value_data tmp_add(union value_data a, union value_data w)
 	return res;
 }
 
-Value value_add(Value a, Value w)
+Value value_add(Vm vm, Value a, Value w)
 {
+	assert(a);
+	assert(w);
+	assert(vm);
 	if (a->rank < w->rank) { /* Addition is commutative, so swap. */
 		Value t = a;
 		a = w;
 		w = t;
 	} /* Now a->rank >= w->rank */
 	assert(w->rank <= a->rank);
-	return binop(a, w, &tmp_add);
+	return binop(vm, a, w, &tmp_add);
+}
+
+Vm value_make_vm(void)
+{
+	Vm vm = malloc(sizeof *vm);
+	if (!vm) {
+		return vm;
+	}
+	assert(init_slab_alloc(&vm->slab, 8 * 4096) == 0);
+	assert(init_pool_alloc(&vm->pool, &vm->slab, sizeof(struct Value_)) ==
+	       0);
+	return vm;
+}
+
+void value_free_vm(Vm vm)
+{
+	assert(vm);
+	mem_pool_deinit(&vm->pool);
+	mem_slab_deinit(&vm->slab);
+	free(vm);
 }

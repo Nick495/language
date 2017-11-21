@@ -1,12 +1,5 @@
 #include "token.h"
 
-struct token_ {
-	enum token_type type;
-	size_t len;
-	size_t off;
-	const char *src;
-};
-
 static void assert_valid_token(token t) { assert(t); }
 
 size_t token_size()
@@ -15,23 +8,22 @@ size_t token_size()
 	return sizeof *t;
 }
 
-void token_free(token t) { mem_dealloc(t); }
+void token_free(token t) { free(t); }
 
 static token alloc_token(token prev)
 {
 	token t;
-	if (prev) {
-		t = prev;
-	} else {
-		t = mem_alloc(sizeof *t);
-		if (!t)
-			goto fail_mem_alloc_token;
+	if (!prev) {
+		prev = malloc(sizeof *t);
+		if (!prev)
+			goto fail_malloc_token;
 	}
+	t = prev;
 	assert_valid_token(t);
 	return t;
 
 	token_free(t);
-fail_mem_alloc_token:
+fail_malloc_token:
 	return NULL;
 }
 
@@ -56,7 +48,6 @@ fail_alloc_token:
 token token_copy(token dst, token src)
 {
 	assert_valid_token(src);
-	dst = alloc_token(dst);
 	assert_valid_token(dst);
 	memcpy(dst, src, sizeof *src); /* Copy internals by value. */
 	return dst;

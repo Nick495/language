@@ -1,9 +1,10 @@
 #ifndef VALUE_H_
 #define VALUE_H_
 
-#include "mem/mem.h" /* mem_alloc(), mem_free() */
+#include "mem/mem.h" /* Memory management. */
 #include <assert.h>  /* assert() */
 #include <stdio.h>   /* snprintf() */
+#include <stdlib.h>  /* malloc(), realloc(), free() */
 #include <string.h>  /* memcpy() */
 
 typedef struct Value_ *Value;
@@ -28,11 +29,21 @@ struct value_atom {
 	union value_data data;
 };
 
-Value value_make(struct value_atom value, size_t init_size);
-Value value_append(Value v, struct value_atom val);
+struct value_vm {
+	struct pool_alloc pool;
+	struct slab_alloc slab;
+};
+typedef struct value_vm *Vm;
 
-Value value_add(Value a, Value w);
+Vm value_make_vm(void);
+void value_free_vm(Vm vm);
+
+Value value_make(Vm vm, struct value_atom value, size_t isize);
+Value value_append(Vm vm, Value v, struct value_atom val);
+
+Value value_add(Vm vm, Value a, Value w);
 Value value_reference(Value v);
-void value_free(Value v);
+void value_free(Vm vm, Value v);
+void value_free_vm(Vm vm);
 char *value_stringify(Value v);
 #endif
