@@ -33,6 +33,7 @@ token token_make(enum token_type type, const char *src, size_t len, size_t off,
 void token_free(token);
 token token_copy(token dst, token src);
 const char *get_value(token t);
+size_t get_len(token t);
 void token_print(token t, char *out);
 enum token_type get_type(token);
 size_t token_size();

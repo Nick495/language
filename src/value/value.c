@@ -45,7 +45,10 @@ static void print_value(Value v)
 			print_value(v->sd[v->rank + i].vector);
 			break;
 		case SYMBOL:
-			fprintf(stderr, "%zu\n", v->sd[v->rank + i].symbol);
+			fprintf(stderr, "str: %s\n",
+				v->sd[v->rank + i].symbol.text);
+			fprintf(stderr, "len: %zu\n",
+				v->sd[v->rank + i].symbol.len);
 			break;
 		case FUNCTION:
 			fprintf(stderr, "rank: %zu\n",

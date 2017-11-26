@@ -15,7 +15,10 @@ union value_data {
 	size_t shape;
 	unsigned long integer;
 	Value vector;
-	size_t symbol;
+	struct {
+		const char *text;
+		size_t len;
+	} symbol;
 	struct function_obj {
 		size_t func_rank; /* TODO: What should this do? */
 		enum arity { ZERO, ONE, TWO } arity;

@@ -21,18 +21,6 @@ static int add_slab(struct slab_alloc *a)
 	return 0;
 }
 
-static void free_slabs(struct slab_alloc *a)
-{
-	void *next, *tmp;
-	assert(a);
-	next = a->head;
-	while (next != NULL) {
-		tmp = next;
-		next = *((void **)next);
-		free(tmp);
-	}
-}
-
 int init_slab_alloc(struct slab_alloc *a, size_t slab_size)
 {
 	assert(a);
@@ -41,7 +29,7 @@ int init_slab_alloc(struct slab_alloc *a, size_t slab_size)
 	if (!a->next) {
 		return 1;
 	}
-	*(a->next) = NULL; /* Init the end of the free pointer chain. */
+	*(a->next) = NULL; /* Init the end of the free pointer list. */
 	a->cur = (char *)a->next + sizeof(*a->next);
 	assert(*(a->next) == NULL);
 	return 0;
@@ -78,8 +66,12 @@ void *mem_slab_alloc(struct slab_alloc *a, size_t size)
 
 void mem_slab_deinit(struct slab_alloc *a)
 {
+	void *next, *tmp = NULL;
 	assert(a);
-	free_slabs(a);
+	for (next = a->head; next; next = *((void **)next)) {
+		free(tmp);
+		tmp = next;
+	}
 }
 
 void *mem_slab_realloc(struct slab_alloc *a, size_t new_size, void *ptr,

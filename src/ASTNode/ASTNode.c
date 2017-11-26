@@ -9,8 +9,9 @@ Value Eval(ASTNode n, Vm vm)
 		Value left = Eval(n->left, vm), right = Eval(n->right, vm);
 		res = value_add(vm, left, right);
 #if 0
-		value_free(left);
-		value_free(right);
+		Currently don't want Eval to edit the tree.
+		value_free(vm, left);
+		value_free(vm, right);
 #endif
 		return res;
 	}
@@ -25,6 +26,8 @@ Value Eval(ASTNode n, Vm vm)
 		return Eval(n->siblings[n->use - 1], vm);
 	case AST_TOKEN:
 		printf("Got a token: %c\n", *get_value(&n->tk));
+	case AST_ERROR:
+		printf("Got an error\n");
 	}
 	printf("%d\n", n->type);
 	assert(0); /* Bail on bad type */

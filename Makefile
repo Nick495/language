@@ -10,7 +10,7 @@ export SRC = $(PWD)/src
 export WEBOBJ= $(PWD)/webobj
 export WSM = $(PWD)/bin/wsm
 
-export CFLAGS = -g -O3 -Wall -Wextra -fsanitize=undefined -pedantic -std=c11 -I $(SRC) -I $(HEADERS)
+export CFLAGS = -g -O3 -Wall -Wextra -pedantic -std=c11 -I $(SRC) -I $(HEADERS)
 export VPATH = $(OBJ):$(WEBOBJ):$(BIN)
 
 .PHONY: directories $(BUILD) clean

@@ -54,15 +54,8 @@ token lex_token(struct lexer *l, token prev)
 	return l->holder;
 }
 
-#define buflen 100
 static void emit_token(struct lexer *l, enum token_type type)
 {
-	/* DEBUG */
-	char scratch[buflen];
-	const size_t max_size =
-	    (l->cur - l->str) > (buflen - 1) ? (buflen - 1) : (l->cur - l->str);
-	memcpy(scratch, l->cur, max_size);
-	scratch[max_size] = '\0';
 	l->emitted = 1;
 	l->holder = token_make(type, l->str, l->pos - l->cur, l->cur - l->str,
 			       l->holder);

@@ -2,7 +2,7 @@
 
 struct entry {
 	const char *key;
-	void *value;
+	struct ast_node value;
 	/* 0 so it can be set with memset. */
 	enum { EMPTY = 0, DELETED, SET } status;
 };
@@ -20,27 +20,33 @@ struct symtable *symtable_make(struct slab_alloc *a)
 	s = mem_slab_alloc(a, sizeof *s + sizeof *s->entries * CAP);
 	assert(s); /* TODO: Error handling. */
 	s->use = 0;
-	s->cap = 1024;
+	s->cap = CAP;
 	s->seed = 0;
+	s->entries = (struct entry *)((char *)s + sizeof(*s));
+	memset(s->entries, 0, sizeof *s->entries * s->cap);
 	return s;
 }
 
-static struct entry next(struct symtable *s, size_t *hash)
+static struct entry *next(struct symtable *s, size_t *hash)
 {
+	assert(s);
+	assert(hash);
 	*hash = *hash + 1; /* Linear probing. */
-	return s->entries[*hash % s->cap];
+	return &s->entries[*hash % s->cap];
 }
 
 /* Inserts an entry with linear probing. */
-static size_t insert_entry(struct symtable *s, const char *key, void *v)
+static size_t insert_entry(struct symtable *s, const char *key,
+			   struct ast_node n)
 {
 	size_t hash = XXH64(key, strlen(key), s->seed);
-	struct entry e = s->entries[hash % s->cap];
-	while (e.status != EMPTY) {
+	struct entry *e = &(s->entries[hash % s->cap]);
+	while (e->status == SET && strcmp(e->key, key)) {
 		e = next(s, &hash);
 	}
-	e.key = key;
-	e.value = v;
+	e->key = key;
+	e->value = n;
+	e->status = SET;
 	return hash;
 }
 
@@ -63,23 +69,24 @@ static void symtable_expand(struct symtable *s, struct slab_alloc *a)
 }
 
 size_t symtable_push(struct symtable *s, struct slab_alloc *a, const char *key,
-		     void *v)
+		     struct ast_node n)
 {
 	if (s->use >= (s->cap * 3) / 4) {
 		symtable_expand(s, a);
 	}
-	return insert_entry(s, key, v);
+	return insert_entry(s, key, n);
 }
 
-void *symtable_find(struct symtable *s, const char *key)
+ASTNode symtable_find(struct symtable *s, const char *key, size_t len)
 {
-	size_t hash = XXH64(key, strlen(key), s->seed);
-	struct entry e = s->entries[hash % s->cap];
-	while (e.status == SET && memcmp(e.key, key, strlen(key))) {
+	size_t hash = XXH64(key, len, s->seed);
+	struct entry *e = &s->entries[hash % s->cap];
+	while (e->status == DELETED ||
+	       (e->status == SET && memcmp(e->key, key, len))) {
 		e = next(s, &hash);
 	}
-	if (e.status == SET) {
-		return e.value;
+	if (e->status == SET) {
+		return &e->value;
 	} else {
 		return NULL;
 	}

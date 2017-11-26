@@ -10,7 +10,19 @@
 #include <string.h>      /* strerror() */
 
 typedef struct ast_node *ASTNode;
-enum AST_ERR { AST_E_NOMEM };
+enum AST_ERR {
+	AST_E_NOMEM,
+	AST_E_INVALID_UNOP,
+	AST_E_INVALID_BINOP,
+	AST_E_BAD_STMT,
+	AST_E_BAD_PAREN,
+	AST_E_BAD_ASSIGNMENT
+};
+
+typedef int (*AST_led)(int, int, int);
+typedef int (*AST_nud)(int, int);
+typedef int (*AST_std)(int, int);
+
 struct ast_node { /* 4 + 24 bytes = 28 bytes. */
 	enum AST_TYPE {
 		AST_BINOP,
@@ -19,7 +31,8 @@ struct ast_node { /* 4 + 24 bytes = 28 bytes. */
 		AST_ASSIGNMENT,
 		AST_STATEMENT_LIST,
 		AST_ERROR,
-		AST_TOKEN
+		AST_TOKEN,
+		AST_INBUILT
 	} type;		 /* 3 bits necessary. 4 bytes likely. */
 	union {		 /* Max 24 bytes */
 		struct { /* Binop 24 bytes */
@@ -36,13 +49,18 @@ struct ast_node { /* 4 + 24 bytes = 28 bytes. */
 			ASTNode lvalue;
 			ASTNode rvalue;
 		};
-		struct { /* Statement list 16 bytes */
+		struct { /* Statement list 24 bytes */
 			size_t use;
 			size_t cap;
 			ASTNode *siblings;
 		};
 		enum AST_ERR err; /* Error */
-		struct token_ tk; /* Not used, here for allocation size. */
+		struct token_ tk; /* AST_TOKEN */
+		struct {	  /* token class. 24 bytes */
+			AST_led led;
+			AST_nud nud;
+			AST_std std;
+		} tc; /* AST_INBUILT */
 	};
 };
 
