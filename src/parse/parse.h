@@ -5,7 +5,7 @@
 #include "token/token.h"       /* Tokens from lexer. (token) */
 #include "value/value.h"       /* Value types */
 #include <errno.h>	     /* errno */
-#include <stdio.h>    /* FILE*, fprintf() */
+#include <stdio.h>	     /* FILE*, fprintf() */
 #include <stdlib.h>	    /* exit() */
 #include <string.h>	    /* strerror() */
 #include <unistd.h>	    /* read() */

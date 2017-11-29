@@ -7,8 +7,7 @@
 
 struct symtable;
 
-struct symtable *symtable_make(struct slab_alloc *a);
-void symtable_free(struct symtable *s, struct slab_alloc *a);
-size_t symtable_push(struct symtable *s, struct slab_alloc *a, const char *key,
-		     struct ast_node n);
-ASTNode symtable_find(struct symtable *s, const char *key, size_t len);
+struct symtable *symtable_make(struct slab_alloc *a, size_t esize);
+void symtable_free(struct symtable *s);
+size_t symtable_push(struct symtable *s, const char *key, void *value);
+void *symtable_find(struct symtable *s, const char *key, size_t len);

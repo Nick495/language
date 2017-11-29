@@ -120,17 +120,34 @@ struct keyword {
 static struct keyword keywords[] = {{"let", 3, TOKEN_LET},
 				    {":=", 2, TOKEN_ASSIGNMENT},
 				    {"+", 1, TOKEN_OPERATOR},
+				    {"func", 4, TOKEN_FUNC},
 				    {NULL, 0, TOKEN_EOF}};
 static state_func lex_identifier(struct lexer *l)
 {
 	char c = next(l);
 	enum token_type type = TOKEN_IDENTIFIER;
+#if 0
+	char buf[1024]; /* DEBUG */
+#endif
 	while (!isspace(c)) {
 		c = next(l);
 	}
 	backup(l);
 
+#if 0
+	/* DEBUG: */
+	memcpy(buf, l->cur, (l->pos - l->cur));
+	buf[l->pos - l->cur] = '\0';
+	printf("DEBUG: Found %s\n", buf);
+#endif
+
 	for (struct keyword *k = keywords; k->name != NULL; ++k) {
+#if 0
+		/* DEBUG */
+		memcpy(buf, k->name, k->length);
+		buf[k->length] = '\0';
+		printf("DEBUG: Trying %s\n", buf);
+#endif
 		if ((size_t)(l->pos - l->cur) == k->length &&
 		    !memcmp(l->cur, k->name, k->length)) {
 			type = k->token_type;
@@ -141,6 +158,57 @@ static state_func lex_identifier(struct lexer *l)
 	l->inject_semi = 1;
 	return (state_func)lex_start;
 }
+
+#if 0
+static state_func lex_start(struct lexer *l)
+{
+	char c = next(l);
+	if (isspace(c)) {
+		backup(l);
+		return (state_func)lex_space;
+	} else if (isdigit(c)) {
+		backup(l);
+		return (state_func)lex_number;
+	}
+	switch (c) {
+	case '(':
+		emit_token(l, TOKEN_LPAREN);
+		return (state_func)lex_start;
+	case ')':
+		emit_token(l, TOKEN_RPAREN);
+		return (state_func)lex_start;
+	case ';':
+		emit_token(l, TOKEN_SEMICOLON);
+		return (state_func)lex_start;
+	case ',':
+		emit_token(l, TOKEN_COMMA);
+		return (state_func)lex_start;
+	case '{':
+		emit_token(l, TOKEN_LCBRACE);
+		return (state_func)lex_start;
+	case '}':
+		if (l->inject_semi) {
+			l->inject_semi = 0;
+			backup(l);
+			emit_token(l, TOKEN_SEMICOLON);
+			return (state_func)lex_start;
+		}
+		l->inject_semi = 1;
+		emit_token(l, TOKEN_RCBRACE);
+		return (state_func)lex_start;
+	case '\0':
+		if (l->inject_semi) {
+			inject_semicolon(l);
+		}
+		l->cur = l->pos; /* Don't duplicate null terminators. */
+		emit_token(l, TOKEN_EOF);
+		return NULL;
+	default:
+		backup(l);
+		return (state_func)lex_identifier;
+	}
+}
+#endif
 
 static state_func lex_start(struct lexer *l)
 {
@@ -162,8 +230,23 @@ static state_func lex_start(struct lexer *l)
 	case ';':
 		emit_token(l, TOKEN_SEMICOLON);
 		return (state_func)lex_start;
+	case ',':
+		emit_token(l, TOKEN_COMMA);
+		return (state_func)lex_start;
+	case '{':
+		emit_token(l, TOKEN_LCBRACE);
+		return (state_func)lex_start;
+	case '}':
+		if (l->inject_semi) {
+			inject_semicolon(l);
+			backup(l); /* Stay in place so next token is the '}' */
+			return (state_func)lex_start;
+		}
+		l->inject_semi = 1;
+		emit_token(l, TOKEN_RCBRACE);
+		return (state_func)lex_start;
 	case '\0':
-		if (c == '\n' && l->inject_semi) {
+		if (l->inject_semi) {
 			inject_semicolon(l);
 		}
 		l->cur = l->pos; /* Don't duplicate null terminators. */

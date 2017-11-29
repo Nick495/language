@@ -1,13 +1,15 @@
 #ifndef VALUE_H_
 #define VALUE_H_
 
-#include "mem/mem.h" /* Memory management. */
-#include <assert.h>  /* assert() */
-#include <stdio.h>   /* snprintf() */
-#include <stdlib.h>  /* malloc(), realloc(), free() */
-#include <string.h>  /* memcpy() */
-
 typedef struct Value_ *Value;
+
+#include "ASTNode/ASTNode.h"   /* ASTNode */
+#include "mem/mem.h"	   /* Memory management. */
+#include "symtable/symtable.h" /* symtable */
+#include <assert.h>	    /* assert() */
+#include <stdio.h>	     /* snprintf() */
+#include <stdlib.h>	    /* malloc(), realloc(), free() */
+#include <string.h>	    /* memcpy() */
 
 enum value_type { INTEGER, VECTOR, SYMBOL, FUNCTION, ERROR };
 enum error_type { INVALID_ARGS, MEM_ALLOC };
@@ -49,4 +51,6 @@ Value value_reference(Value v);
 void value_free(Vm vm, Value v);
 void value_free_vm(Vm vm);
 char *value_stringify(Value v);
+
+Value Eval(ASTNode n, Vm vm);
 #endif

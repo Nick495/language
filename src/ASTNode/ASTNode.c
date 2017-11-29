@@ -1,39 +1,6 @@
 #include "ASTNode.h"
 #include "asprintf.c"
 
-Value Eval(ASTNode n, Vm vm)
-{
-	Value res;
-	switch (n->type) {
-	case AST_BINOP: {
-		Value left = Eval(n->left, vm), right = Eval(n->right, vm);
-		res = value_add(vm, left, right);
-#if 0
-		Currently don't want Eval to edit the tree.
-		value_free(vm, left);
-		value_free(vm, right);
-#endif
-		return res;
-	}
-	case AST_UNOP:
-		return Eval(n->rest, vm);
-	case AST_ASSIGNMENT:
-		return Eval(n->rvalue, vm);
-	case AST_VALUE:
-		return n->value;
-	/* return value_reference(n->value); */
-	case AST_STATEMENT_LIST:
-		return Eval(n->siblings[n->use - 1], vm);
-	case AST_TOKEN:
-		printf("Got a token: %c\n", *get_value(&n->tk));
-	case AST_ERROR:
-		printf("Got an error\n");
-	}
-	printf("%d\n", n->type);
-	assert(0); /* Bail on bad type */
-	return NULL;
-}
-
 /* Returns a char* of the node to string, caller must free. */
 char *Stringify(ASTNode n)
 {

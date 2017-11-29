@@ -31,7 +31,8 @@ struct Parser *parser_make(Vm vm)
 	assert(init_slab_alloc(&p->slab, 8 * 4096) == 0);
 	assert(init_pool_alloc(&p->pool, &p->slab, sizeof(p->err)) == 0);
 	p->vm = vm;
-	p->environment.symbols = symtable_make(&p->slab);
+	p->environment.symbols =
+	    symtable_make(&p->slab, sizeof(struct ast_node));
 	p->environment.up = NULL;
 	assert(p->environment.symbols);
 	p->head = &p->environment;
@@ -45,10 +46,10 @@ void parser_free(struct Parser *p)
 	if (p) {
 		lexer_free(p->lex);
 		while (p->environment.up) {
-			symtable_free(p->environment.symbols, &p->slab);
+			symtable_free(p->environment.symbols);
 			p->environment = *p->environment.up;
 		}
-		symtable_free(p->environment.symbols, &p->slab);
+		symtable_free(p->environment.symbols);
 		mem_pool_deinit(&p->pool);
 		mem_slab_deinit(&p->slab);
 	}
@@ -141,7 +142,7 @@ static ASTNode next(struct Parser *p)
 
 static void assign(struct Parser *p, const char *name, struct ast_node n)
 {
-	symtable_push(p->environment.symbols, &p->slab, name, n);
+	symtable_push(p->environment.symbols, name, &n);
 }
 
 /*
@@ -165,7 +166,8 @@ static ASTNode null_nud(struct Parser *p, ASTNode self)
 	assert(p);
 	assert(self);
 	assert(self->type == AST_TOKEN);
-	printf("Bad unop %s\n", get_value(&self->tk));
+	printf("Bad unop len: %zu %s\n", get_len(&self->tk),
+	       get_value(&self->tk));
 	self->type = AST_ERROR;
 	self->err = AST_E_INVALID_UNOP;
 	return self;
@@ -299,6 +301,7 @@ static ASTNode let_std(struct Parser *p, ASTNode cur)
 	cur->type = AST_ASSIGNMENT;
 	cur->lvalue = identifiers;
 	cur->rvalue = rvalues;
+
 	return cur;
 }
 
@@ -317,6 +320,21 @@ static ASTNode paren_nud(struct Parser *p, ASTNode cur)
 	return cur;
 }
 
+static ASTNode func_nud(struct Parser *p, ASTNode cur);
+
+/* Early exit with an error if we have an unexpected result. */
+#define EXPECT(cur, val, expected_type, error)                                 \
+	do {                                                                   \
+		if (get_type((val)) != (expected_type)) {                      \
+			printf("DEBUG: Expected type %d\n", (expected_type));  \
+			printf("DEBUG: Got type %d\n", (val)->type);           \
+			(cur)->type = AST_ERROR;                               \
+			(cur)->err = (error);                                  \
+			assert(0);                                             \
+			return (cur);                                          \
+		}                                                              \
+	} while (0)
+
 static ASTNode exec_nud(struct Parser *p, ASTNode token)
 {
 	assert(token);
@@ -324,6 +342,8 @@ static ASTNode exec_nud(struct Parser *p, ASTNode token)
 	switch (get_type(&token->tk)) {
 	case TOKEN_NUMBER:
 		return SingleOrVec(p, token, TOKEN_NUMBER);
+	case TOKEN_FUNC:
+		return func_nud(p, token);
 	case TOKEN_IDENTIFIER:
 		return identifier_apply(p, token, NULL);
 	case TOKEN_LPAREN:
@@ -362,6 +382,7 @@ static int lbp(token token)
 {
 	assert(token);
 	switch (get_type(token)) {
+	case TOKEN_RCBRACE:
 	case TOKEN_SEMICOLON: /* FALLTHRU */
 		return 1;
 	case TOKEN_EOF:
@@ -384,8 +405,8 @@ static ASTNode expression(struct Parser *p, int rbp)
 	token peeked;
 	CHECK_OOM(t);
 #if 0
-	printf("Processing: type: %d | %s\n", get_type(&t->tk),
-	       get_value(&t->tk));
+	printf("Processing: type: %d len: %zu | %s\n", get_type(&t->tk),
+	       get_len(&t->tk), get_value(&t->tk));
 #endif
 	left = exec_nud(p, t);
 	peeked = peek(p);
@@ -404,19 +425,13 @@ static ASTNode expression(struct Parser *p, int rbp)
 
 static ASTNode statement(struct Parser *p)
 {
-	token peeked;
 	ASTNode res;
 	assert(p);
 	res = exec_std(p);
 	CHECK_OOM(res);
-	peeked = peek(p);
 
-	if (get_type(peeked) != TOKEN_SEMICOLON) {
-		res->type = AST_ERROR;
-		res->err = AST_E_BAD_STMT;
-	} else {
-		(void)next(p); /* Consume semicolon. */
-	}
+	EXPECT(res, peek(p), TOKEN_SEMICOLON, AST_E_BAD_STMT);
+	(void)next(p); /* Consume semicolon. */
 	return res;
 }
 
@@ -440,13 +455,14 @@ static ASTNode sl_extend(struct Parser *p, ASTNode sl, size_t cnt,
 
 static ASTNode statements(struct Parser *p)
 {
-	token peeked;
+	enum token_type peeked_type;
 	ASTNode sl = make_node(p, AST_STATEMENT_LIST);
 	CHECK_OOM(sl);
 	sl_extend(p, sl, 2, 0);
 	CHECK_OOM(sl);
 	for (;;) {
-		if (get_type(peek(p)) == TOKEN_EOF) {
+		peeked_type = get_type(peek(p));
+		if (peeked_type == TOKEN_EOF || peeked_type == TOKEN_RCBRACE) {
 			break;
 		}
 		sl->siblings[sl->use++] = statement(p);
@@ -456,6 +472,52 @@ static ASTNode statements(struct Parser *p)
 		}
 	}
 	return sl;
+}
+
+static ASTNode func_nud(struct Parser *p, ASTNode cur)
+{
+	assert(p);
+	assert(cur);
+	assert(cur->type == AST_TOKEN);
+
+	cur->type = AST_FUNC;
+	EXPECT(cur, peek(p), TOKEN_IDENTIFIER, AST_E_BAD_FUNC);
+	cur->func.name = next(p);
+	CHECK_OOM(cur->func.name);
+
+	EXPECT(cur, peek(p), TOKEN_LPAREN, AST_E_BAD_FUNC);
+	(void)next(p); /* Consume the lparen. */
+
+	/* Left name */
+	EXPECT(cur, peek(p), TOKEN_IDENTIFIER, AST_E_BAD_FUNC);
+	cur->func.left = next(p);
+	CHECK_OOM(cur->func.left);
+
+	if (get_type(peek(p)) == TOKEN_RPAREN) { /* unop? */
+		cur->func.right = NULL;
+	} else {
+		EXPECT(cur, peek(p), TOKEN_COMMA, AST_E_BAD_FUNC);
+		(void)next(p); /* Consume the comma. */
+
+		EXPECT(cur, peek(p), TOKEN_IDENTIFIER, AST_E_BAD_FUNC);
+		cur->func.right = next(p);
+		CHECK_OOM(cur->func.right);
+	}
+
+	/* Either a binop with 2nd arg parsed or unop with 1st parsed. */
+	EXPECT(cur, peek(p), TOKEN_RPAREN, AST_E_BAD_FUNC);
+	(void)next(p);
+
+	EXPECT(cur, peek(p), TOKEN_LCBRACE, AST_E_BAD_FUNC);
+	(void)next(p);
+
+	cur->func.body = statements(p);
+	CHECK_OOM(cur->func.body);
+
+	EXPECT(cur, peek(p), TOKEN_RCBRACE, AST_E_BAD_FUNC);
+	(void)next(p);
+
+	return cur;
 }
 
 static ASTNode plus_led(struct Parser *p, ASTNode self, ASTNode left)

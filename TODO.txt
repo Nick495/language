@@ -1,19 +1,21 @@
 Things to do to improve the interpreter.
 
-Make a hashtable implementation for environments / symbols.
-	- Need to refactor hashtable to use pool allocator
-		o Stable allocations means we can just store pointers in AST
-	- Need to parser functions to pull symbols out.
+General Refactorings
+	- Rename symtable to hashtable.
+	- Remove circular includes between value and ASTNode.
+	- Possibly switch to 8 column tabs
+	- Ensure all functions are properly prefixed / check variable naming.
+	- Look to switch back to C89. (Anonymous unions go away, yuck).
+	- See if we can't localize stdlib usage to the print function and #ifdef it
+		X Related to memory management refactoring.
+
+Refactor memory management.
+	- Have the lexer take an array of astnodes like JSMN or the lexer.
+		X Out of memory condition is now deterministic, can bubble easily.
+		X Similarly can handle the evaluator.
 
 Add error handling through error tokens & parser errors.
-	- Lexer now handles errors gracefully.
 	- Need to add additional error handling code in parser.
-		X Refactor mem_alloc() to use a pool allocator
-			o Partially done, need to separate pool and slab allocators.
-			o Add token to ASTNode for pool allocation purposes.
-		X Preallocate an out of memory error node
-			o OOM error is handled at init with this setup.
-			o Define a macro that bubbles error node from mem_alloc()
 
 Begin implementing a standard library for the APL.
 	- Implement the functions from APL's game of life first.

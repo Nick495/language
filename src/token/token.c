@@ -88,7 +88,11 @@ struct name_map name_map_search(enum token_type type)
 	    {TOKEN_SEMICOLON, "Semicolon", strlen("Semicolon")},
 	    {TOKEN_IDENTIFIER, "Identifier", strlen("Identifier")},
 	    {TOKEN_LET, "Let", strlen("Let")},
-	    {TOKEN_ASSIGNMENT, "Assignment", strlen("Assignment")}};
+	    {TOKEN_ASSIGNMENT, "Assignment", strlen("Assignment")},
+	    {TOKEN_FUNC, "Func", strlen("Func")},
+	    {TOKEN_LCBRACE, "Left Curly Brace", strlen("Left Curly Brace")},
+	    {TOKEN_RCBRACE, "Right Curly Brace", strlen("Right Curly Brace")},
+	    {TOKEN_COMMA, "Comma", strlen("Comma")}};
 	return map[type];
 }
 
